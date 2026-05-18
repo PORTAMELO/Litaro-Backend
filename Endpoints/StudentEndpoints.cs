@@ -1,0 +1,35 @@
+﻿using Litaro.Models;
+using Litaro.Services;
+
+namespace Litaro.Endpoints
+{
+    public static class StudentEndpoints
+    {
+        public static void MapStudentEndpoints(this WebApplication app)
+        {
+            app.MapGet("/students", async (StudentService svc) =>
+                Results.Ok(await svc.GetAllAsync()));
+
+            app.MapGet("/students/{id}", async (int id, StudentService svc) =>
+                await svc.GetByIdAsync(id) is Student s
+                    ? Results.Ok(s)
+                    : Results.NotFound());
+
+            app.MapPost("/students", async (Student student, StudentService svc) =>
+            {
+                var created = await svc.CreateAsync(student);
+                return Results.Created($"/students/{created.StudentId}", created);
+            });
+
+            app.MapPut("/students/{id}", async (int id, Student student, StudentService svc) =>
+                await svc.UpdateAsync(id, student)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+
+            app.MapDelete("/students/{id}", async (int id, StudentService svc) =>
+                await svc.DeleteAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+        }
+    }
+}
