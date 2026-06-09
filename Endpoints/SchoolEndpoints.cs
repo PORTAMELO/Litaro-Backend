@@ -36,5 +36,24 @@ public static class SchoolEndpoints
                 ? Results.NoContent()
                 : Results.NotFound());
 
+        app.MapPost("/schools/import", async (IFormFile file, SchoolService svc) =>
+        {
+            if(file is null || file.Length == 0)
+                return Results.BadRequest("No se recibió ningún archivo.");
+
+            if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                return Results.BadRequest("El archivo debe ser un archivo CSV.");
+
+            await using var stream = file.OpenReadStream();
+            var (imported, errors) = await svc.ImportFromCsvAsync(stream);
+
+            return Results.Ok(new
+            {
+                Imported = imported,
+                Errors = errors
+            });
+
+        }).DisableAntiforgery();
+
     }
 }

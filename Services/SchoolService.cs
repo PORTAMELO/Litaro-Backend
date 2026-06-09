@@ -56,4 +56,72 @@ public class SchoolService(AppDbContext db)
         return true;
     }
 
+    public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)
+    {
+        var errors = new List<string>();
+        int imported = 0;
+
+        using var reader = new StreamReader(csvStream);
+
+        await reader.ReadLineAsync();
+
+        int lineNumber = 1;
+        string? line;
+        while ((line = await reader.ReadLineAsync()) is not null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var cols = line.Split(',');
+            if (cols.Length < 4)
+            {
+                errors.Add($"Linea {lineNumber}: columnas insuficientes (se esperan 4).");
+                continue;
+            }
+
+            var name = cols[0].Trim();
+            var nit = cols[1].Trim();
+            var address = cols[2].Trim();
+            var phone = cols[3].Trim();
+
+            if(string.IsNullOrEmpty(name) || string.IsNullOrEmpty(nit) || string.IsNullOrEmpty(address))
+            {
+                errors.Add($"Linea {lineNumber}: Nombre, nit o direccion son obligatorios");
+                continue;
+            }
+
+            bool nitExists = await db.Schools.AnyAsync(s => s.Nit == nit);
+            if (nitExists)
+            {
+                errors.Add($"Linea {lineNumber}: Nit '{nit}' ya existe en la base de datos");
+                continue;
+            }
+
+            var School = new School
+            {
+                Name = name,
+                Nit = nit,
+                Address = address,
+                Phone = string.IsNullOrEmpty(phone) ? null : phone,
+            };
+
+            db.Schools.Add(School);
+
+            try
+            {
+                await db.SaveChangesAsync();
+                imported++;
+            }
+            catch(DbUpdateException ex)
+            {
+                db.ChangeTracker.Clear();
+                errors.Add($"Linea {lineNumber}: error al guardar - {ex.InnerException?.Message ?? ex.Message}");
+            }
+
+        }
+
+        return (imported, errors);
+
+    }
+
 }

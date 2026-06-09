@@ -56,4 +56,73 @@ public class CampusService(AppDbContext db)
         return true;
     }
 
+    public async Task<(int Imported, List<String> Errors)> ImportFromCsvAsync(Stream csvStream)
+    {
+        var errors = new List<string>();
+        var imported = 0;
+
+        using var reader = new StreamReader(csvStream);
+
+        await reader.ReadLineAsync();
+
+        int lineNumber = 1;
+        string? line;
+        while ((line = await reader.ReadLineAsync()) is not null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var cols = line.Split(',');
+            
+            if (cols.Length < 4)
+            {
+                errors.Add($"Línea {lineNumber}: columnas insuficientes (se esperan 4).");
+                continue;
+            }
+
+            var name = cols[0].Trim();
+            var address = cols[1].Trim();
+            var phone = cols[2].Trim();
+            var nitSchool = cols[3].Trim();
+
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(address) || string.IsNullOrEmpty(nitSchool))
+            {
+                errors.Add($"Línea {lineNumber}: Nombre, Dirección y NitColegio son obligatorios.");
+                continue;
+            }
+
+            var school = await db.Schools.FirstOrDefaultAsync(s => s.Nit == nitSchool);
+            if (school is null)
+            {
+                errors.Add($"Línea {lineNumber}: No existe un colegio con Nit '{nitSchool}'.");
+                continue;
+            }
+
+            var campus = new Campus
+            {
+                Name = name,
+                Address = address,
+                Phone = string.IsNullOrEmpty(phone) ? null : phone,
+                SchoolId = school.SchoolId,
+            };
+
+            db.Campuses.Add(campus);
+
+            try
+            {
+                await db.SaveChangesAsync();
+                imported++;
+            }
+            catch (DbUpdateException ex)
+            {
+                db.ChangeTracker.Clear();
+                errors.Add($"Línea {lineNumber}: error al guardar — {ex.InnerException?.Message ?? ex.Message}");
+            }
+
+        }
+
+        return (imported, errors);
+
+    }
+
 }
