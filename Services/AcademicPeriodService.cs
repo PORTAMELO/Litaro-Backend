@@ -78,7 +78,7 @@ namespace Litaro.Services
                     continue;
                 }
 
-                if (periodNumber < 1 || periodNumber > 14)
+                if (periodNumber < 1 || periodNumber > 12)
                 {
                     errors.Add($"Línea {lineNumber}: NumeroPeriodo '{periodNumber}' debe estar entre 1 y 12.");
                     continue;
