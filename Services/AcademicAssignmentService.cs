@@ -10,7 +10,7 @@ namespace Litaro.Services
             db.AcademicAssignments.Where(a => a.Active).ToListAsync();
 
         public async Task<AcademicAssignment?> GetByIdAsync(int id) =>
-            await db.AcademicAssignments.FindAsync(id);
+            await db.AcademicAssignments.FirstOrDefaultAsync(a => a.AssignmentId == id && a.Active);
 
         public async Task<AcademicAssignment> CreateAsync(AcademicAssignment assignment)
         {

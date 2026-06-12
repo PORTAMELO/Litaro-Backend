@@ -431,3 +431,6 @@ FodyWeavers.xsd
 # Local development settings (credentials)
 appsettings.Development.json
 appsettings.Local.json
+
+# Configuracion vscode
+.vscode/
