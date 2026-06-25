@@ -15,12 +15,6 @@ namespace Litaro.Endpoints
                     ? Results.Ok(u)
                     : Results.NotFound());
 
-            app.MapPost("/users", async (User user, UserService svc) =>
-            {
-                var created = await svc.CreateAsync(user);
-                return Results.Created($"/users/{created.UserId}", created);
-            });
-
             app.MapPut("/users/{id}", async (int id, User user, UserService svc) =>
                 await svc.UpdateAsync(id, user)
                     ? Results.NoContent()

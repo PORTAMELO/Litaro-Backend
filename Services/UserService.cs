@@ -1,23 +1,17 @@
 ﻿using Litaro.Data;
 using Litaro.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services
 {
-    public class UserService(AppDbContext db)
+    public class UserService(AppDbContext db, UserManager<User> userManager)
     {
         public Task<List<User>> GetAllAsync() =>
             db.Users.Where(u => u.Active).ToListAsync();
 
         public async Task<User?> GetByIdAsync(int id) =>
             await db.Users.FindAsync(id);
-
-        public async Task<User> CreateAsync(User user)
-        {
-            db.Users.Add(user);
-            await db.SaveChangesAsync();
-            return user;
-        }
 
         public async Task<bool> UpdateAsync(int id, User updated)
         {
@@ -27,10 +21,21 @@ namespace Litaro.Services
             user.FirstName = updated.FirstName;
             user.LastName = updated.LastName;
             user.Email = updated.Email;
-            user.Role = updated.Role;
+            user.UserName = updated.Email;
             user.CampusId = updated.CampusId;
 
             await db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ChangeRoleAsync(int id, string newRole)
+        {
+            var user = await userManager.FindByIdAsync(id.ToString());
+            if (user is null) return false;
+
+            var currentRoles = await userManager.GetRolesAsync(user);
+            await userManager.RemoveFromRolesAsync(user, currentRoles);
+            await userManager.AddToRoleAsync(user, newRole);
             return true;
         }
 

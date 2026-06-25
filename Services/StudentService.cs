@@ -1,10 +1,11 @@
 ﻿using Litaro.Data;
 using Litaro.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services
 {
-    public class StudentService(AppDbContext db)
+    public class StudentService(AppDbContext db, UserManager<User> userManager)
     {
         public Task<List<Student>> GetAllAsync() =>
             db.Students.Include(s => s.User).ToListAsync();
@@ -48,7 +49,6 @@ namespace Litaro.Services
             int imported = 0;
 
             using var reader = new StreamReader(csvStream);
-
             await reader.ReadLineAsync();
 
             int lineNumber = 1;
@@ -59,7 +59,6 @@ namespace Litaro.Services
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 var cols = line.Split(',');
-
                 if (cols.Length < 10)
                 {
                     errors.Add($"Línea {lineNumber}: columnas insuficientes (se esperan 10).");
@@ -77,7 +76,6 @@ namespace Litaro.Services
                 var birthDateRaw = cols[8].Trim();
                 var gender = cols[9].Trim().ToUpper();
 
-
                 if (string.IsNullOrEmpty(documentType) || string.IsNullOrEmpty(documentNumber) ||
                     string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName) ||
                     string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password) ||
@@ -91,7 +89,7 @@ namespace Litaro.Services
                 var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
                 if (!validDocTypes.Contains(documentType))
                 {
-                    errors.Add($"Línea {lineNumber}: TipoDocumento '{documentType}' no válido. Use: CC, TI, CE, PAS, RC.");
+                    errors.Add($"Línea {lineNumber}: TipoDocumento '{documentType}' no válido.");
                     continue;
                 }
 
@@ -101,87 +99,67 @@ namespace Litaro.Services
                     continue;
                 }
 
-                if (!DateTime.TryParse(birthDateRaw, out DateTime birthDate))
+                if (!DateTime.TryParse(birthDateRaw, out DateTime birthDate) || birthDate.Date > DateTime.Today)
                 {
-                    errors.Add($"Línea {lineNumber}: FechaNacimiento '{birthDateRaw}' no tiene un formato válido.");
+                    errors.Add($"Línea {lineNumber}: FechaNacimiento '{birthDateRaw}' no válida o es futura.");
                     continue;
                 }
 
-                if (birthDate.Date > DateTime.Today)
-                {
-                    errors.Add($"Línea {lineNumber}: FechaNacimiento no puede ser una fecha futura.");
-                    continue;
-                }
-
-                bool docExists = await db.Users.AnyAsync(u => u.DocumentType == documentType
-                                                           && u.DocumentNumber == documentNumber);
-                if (docExists)
+                if (await db.Users.AnyAsync(u => u.DocumentType == documentType && u.DocumentNumber == documentNumber))
                 {
                     errors.Add($"Línea {lineNumber}: ya existe un usuario con documento {documentType} {documentNumber}.");
                     continue;
                 }
 
-                bool emailExists = await db.Users.AnyAsync(u => u.Email == email);
-                if (emailExists)
+                if (await userManager.FindByEmailAsync(email) is not null)
                 {
                     errors.Add($"Línea {lineNumber}: el correo '{email}' ya está registrado.");
                     continue;
                 }
 
-                bool codeExists = await db.Students.AnyAsync(s => s.StudentCode == studentCode);
-                if (codeExists)
+                if (await db.Students.AnyAsync(s => s.StudentCode == studentCode))
                 {
-                    errors.Add($"Línea {lineNumber}: el código de estudiante '{studentCode}' ya está registrado.");
+                    errors.Add($"Línea {lineNumber}: el código '{studentCode}' ya está registrado.");
                     continue;
                 }
 
-                if (!int.TryParse(campusCode, out int campusId))
+                if (!int.TryParse(campusCode, out int campusId) ||
+                    !await db.Campuses.AnyAsync(c => c.CampusId == campusId))
                 {
-                    errors.Add($"Línea {lineNumber}: CampusId '{campusCode}' no es un número válido.");
-                    continue;
-                }
-
-                bool campusExists = await db.Campuses.AnyAsync(c => c.CampusId == campusId);
-                if (!campusExists)
-                {
-                    errors.Add($"Línea {lineNumber}: no existe un campus con Id '{campusId}'.");
+                    errors.Add($"Línea {lineNumber}: campus '{campusCode}' no válido o no existe.");
                     continue;
                 }
 
                 var user = new User
                 {
+                    UserName = email,
+                    Email = email,
                     DocumentType = documentType,
                     DocumentNumber = documentNumber,
                     FirstName = firstName,
                     LastName = lastName,
-                    Email = email,
-                    PasswordHash = password,
-                    Role = "STUDENT",
                     CampusId = campusId,
                 };
 
-                try
+                var createResult = await userManager.CreateAsync(user, password);
+                if (!createResult.Succeeded)
                 {
-                    db.Users.Add(user);
-                    await db.SaveChangesAsync();
-                }
-                catch (DbUpdateException ex)
-                {
-                    db.ChangeTracker.Clear();
-                    errors.Add($"Línea {lineNumber}: error al guardar User — {ex.InnerException?.Message ?? ex.Message}");
+                    var msg = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    errors.Add($"Línea {lineNumber}: error al crear usuario — {msg}");
                     continue;
                 }
 
+                await userManager.AddToRoleAsync(user, "STUDENT");
+
                 var student = new Student
                 {
-                    StudentId = user.UserId,
+                    StudentId = user.Id,
                     StudentCode = studentCode,
                     BirthDate = birthDate,
                     Gender = gender[0],
                 };
 
                 db.Students.Add(student);
-
                 try
                 {
                     await db.SaveChangesAsync();
@@ -190,12 +168,11 @@ namespace Litaro.Services
                 catch (DbUpdateException ex)
                 {
                     db.ChangeTracker.Clear();
-                    errors.Add($"Línea {lineNumber}: error al guardar — {ex.InnerException?.Message ?? ex.Message}");
+                    errors.Add($"Línea {lineNumber}: error al guardar Student — {ex.InnerException?.Message ?? ex.Message}");
                 }
             }
 
             return (imported, errors);
         }
-
     }
 }

@@ -74,13 +74,13 @@ namespace Litaro.Services
 
                 if (!byte.TryParse(periodNumberRaw, out byte periodNumber))
                 {
-                    errors.Add($"Línea {lineNumber}: NumeroPeriodo '{periodNumberRaw}' no es un número válido.");
+                    errors.Add($"Línea {lineNumber}: numero del periodo '{periodNumberRaw}' no es un número válido.");
                     continue;
                 }
 
                 if (periodNumber < 1 || periodNumber > 12)
                 {
-                    errors.Add($"Línea {lineNumber}: NumeroPeriodo '{periodNumber}' debe estar entre 1 y 12.");
+                    errors.Add($"Línea {lineNumber}: numero del periodo '{periodNumber}' debe estar entre 1 y 12.");
                     continue;
                 }
 
@@ -104,14 +104,14 @@ namespace Litaro.Services
 
                 if (!short.TryParse(yearIdRaw, out short yearId))
                 {
-                    errors.Add($"Línea {lineNumber}: AnioId '{yearIdRaw}' no es un número válido.");
+                    errors.Add($"Línea {lineNumber}: el año '{yearIdRaw}' no es un número válido.");
                     continue;
                 }
 
                 bool yearExists = await db.AcademicYears.AnyAsync(y => y.YearId == yearId);
                 if (!yearExists)
                 {
-                    errors.Add($"Línea {lineNumber}: No existe un año académico con AnioId '{yearId}'.");
+                    errors.Add($"Línea {lineNumber}: No existe un año académico con '{yearId}'.");
                     continue;
                 }
 

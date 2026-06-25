@@ -1,10 +1,11 @@
 ﻿using Litaro.Data;
 using Litaro.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services
 {
-    public class TeacherService(AppDbContext db)
+    public class TeacherService(AppDbContext db, UserManager<User> userManager)
     {
         public Task<List<Teacher>> GetAllAsync() =>
             db.Teachers.Include(t => t.User).ToListAsync();
@@ -46,7 +47,6 @@ namespace Litaro.Services
             int imported = 0;
 
             using var reader = new StreamReader(csvStream);
-
             await reader.ReadLineAsync();
 
             int lineNumber = 1;
@@ -57,7 +57,6 @@ namespace Litaro.Services
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 var cols = line.Split(',');
-
                 if (cols.Length < 8)
                 {
                     errors.Add($"Línea {lineNumber}: columnas insuficientes (se esperan 8).");
@@ -85,70 +84,59 @@ namespace Litaro.Services
                 var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
                 if (!validDocTypes.Contains(documentType))
                 {
-                    errors.Add($"Línea {lineNumber}: TipoDocumento '{documentType}' no válido. Use: CC, TI, CE, PAS, RC.");
+                    errors.Add($"Línea {lineNumber}: TipoDocumento '{documentType}' no válido.");
                     continue;
                 }
 
-                bool docExists = await db.Users.AnyAsync(u => u.DocumentType == documentType
-                                                           && u.DocumentNumber == documentNumber);
-                if (docExists)
+                if (await db.Users.AnyAsync(u => u.DocumentType == documentType && u.DocumentNumber == documentNumber))
                 {
                     errors.Add($"Línea {lineNumber}: ya existe un usuario con documento {documentType} {documentNumber}.");
                     continue;
                 }
 
-                bool emailExists = await db.Users.AnyAsync(u => u.Email == email);
-                if (emailExists)
+                if (await userManager.FindByEmailAsync(email) is not null)
                 {
                     errors.Add($"Línea {lineNumber}: el correo '{email}' ya está registrado.");
                     continue;
                 }
 
-                if (!int.TryParse(campusCode, out int campusId))
+                if (!int.TryParse(campusCode, out int campusId) ||
+                    !await db.Campuses.AnyAsync(c => c.CampusId == campusId))
                 {
-                    errors.Add($"Línea {lineNumber}: CampusId '{campusCode}' no es un número válido.");
-                    continue;
-                }
-
-                bool campusExists = await db.Campuses.AnyAsync(c => c.CampusId == campusId);
-                if (!campusExists)
-                {
-                    errors.Add($"Línea {lineNumber}: no existe un campus con Id '{campusId}'.");
+                    errors.Add($"Línea {lineNumber}: campus '{campusCode}' no válido o no existe.");
                     continue;
                 }
 
                 var user = new User
                 {
+                    UserName = email,   // Identity requiere UserName
+                    Email = email,
                     DocumentType = documentType,
                     DocumentNumber = documentNumber,
                     FirstName = firstName,
                     LastName = lastName,
-                    Email = email,
-                    PasswordHash = password,
-                    Role = "TEACHER",
                     CampusId = campusId,
                 };
 
-                try
+                // CreateAsync hashea la contraseña automáticamente
+                var createResult = await userManager.CreateAsync(user, password);
+                if (!createResult.Succeeded)
                 {
-                    db.Users.Add(user);
-                    await db.SaveChangesAsync();
-                }
-                catch (DbUpdateException ex)
-                {
-                    db.ChangeTracker.Clear();
-                    errors.Add($"Línea {lineNumber}: error al guardar User — {ex.InnerException?.Message ?? ex.Message}");
+                    var msg = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    errors.Add($"Línea {lineNumber}: error al crear usuario — {msg}");
                     continue;
                 }
 
+                // Asignar rol vía Identity
+                await userManager.AddToRoleAsync(user, "TEACHER");
+
                 var teacher = new Teacher
                 {
-                    TeacherId = user.UserId,
+                    TeacherId = user.Id,
                     Specialty = specialty,
                 };
 
                 db.Teachers.Add(teacher);
-
                 try
                 {
                     await db.SaveChangesAsync();
@@ -157,12 +145,11 @@ namespace Litaro.Services
                 catch (DbUpdateException ex)
                 {
                     db.ChangeTracker.Clear();
-                    errors.Add($"Línea {lineNumber}: error al guardar — {ex.InnerException?.Message ?? ex.Message}");
+                    errors.Add($"Línea {lineNumber}: error al guardar Teacher — {ex.InnerException?.Message ?? ex.Message}");
                 }
             }
 
             return (imported, errors);
         }
-
     }
 }

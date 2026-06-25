@@ -1,9 +1,11 @@
-using Microsoft.EntityFrameworkCore;
 using Litaro.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -15,7 +17,7 @@ public class AppDbContext : DbContext
 
     public DbSet<AcademicPeriod> AcademicPeriods => Set<AcademicPeriod>();
 
-    public DbSet<User> Users => Set<User>();
+    public new DbSet<User> Users => Set<User>();
 
     public DbSet<Student> Students => Set<Student>();
 
@@ -45,6 +47,8 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<School>(entity =>
         {
             entity.ToTable("School");
@@ -101,17 +105,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("User");
-            entity.HasKey(e => e.UserId);
             entity.Property(e => e.DocumentType).HasMaxLength(5).IsRequired();
             entity.Property(e => e.DocumentNumber).HasMaxLength(20).IsRequired();
             entity.HasIndex(e => new { e.DocumentType, e.DocumentNumber }).IsUnique();
             entity.HasIndex(e => e.DocumentNumber);
             entity.Property(e => e.FirstName).HasMaxLength(100).IsRequired();
             entity.Property(e => e.LastName).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.Email).HasMaxLength(150).IsRequired();
-            entity.HasIndex(e => e.Email).IsUnique();
-            entity.Property(e => e.PasswordHash).HasMaxLength(256).IsRequired();
-            entity.Property(e => e.Role).HasMaxLength(15).IsRequired();
             entity.Property(e => e.Active).HasDefaultValue(true);
             entity.Property(e => e.CreationDate).HasDefaultValueSql("SYSDATETIME()");
             entity.HasOne(e => e.Campus)
