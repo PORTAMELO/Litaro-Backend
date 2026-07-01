@@ -87,14 +87,14 @@ public class CampusService(AppDbContext db)
 
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(address) || string.IsNullOrEmpty(nitSchool))
             {
-                errors.Add($"Línea {lineNumber}: Nombre, Dirección y NitColegio son obligatorios.");
+                errors.Add($"Línea {lineNumber}: Nombre, Dirección y NITColegio son obligatorios.");
                 continue;
             }
 
             var school = await db.Schools.FirstOrDefaultAsync(s => s.Nit == nitSchool);
             if (school is null)
             {
-                errors.Add($"Línea {lineNumber}: No existe un colegio con Nit '{nitSchool}'.");
+                errors.Add($"Línea {lineNumber}: No existe un colegio con NIT '{nitSchool}'.");
                 continue;
             }
 

@@ -86,14 +86,14 @@ public class SchoolService(AppDbContext db)
 
             if(string.IsNullOrEmpty(name) || string.IsNullOrEmpty(nit) || string.IsNullOrEmpty(address))
             {
-                errors.Add($"Linea {lineNumber}: Nombre, nit o direccion son obligatorios");
+                errors.Add($"Linea {lineNumber}: Nombre, NIT o direccion son obligatorios");
                 continue;
             }
 
             bool nitExists = await db.Schools.AnyAsync(s => s.Nit == nit);
             if (nitExists)
             {
-                errors.Add($"Linea {lineNumber}: Nit '{nit}' ya existe en la base de datos");
+                errors.Add($"Linea {lineNumber}: NIT '{nit}' ya existe en la base de datos");
                 continue;
             }
 
