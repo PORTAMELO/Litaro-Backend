@@ -45,6 +45,10 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<StudentLog> StudentLogs => Set<StudentLog>();
 
+    public DbSet<WebContent> WebContents => Set<WebContent>();
+
+    public DbSet<WebContentConfiguration> WebContentConfigurations => Set<WebContentConfiguration>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -328,6 +332,67 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 .WithMany()
                 .HasForeignKey(e => e.UserRecordedId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WebContentConfiguration>(entity =>
+        {
+            entity.ToTable("WebContentConfiguration");
+            entity.HasKey(e => e.WebContentConfigurationId);
+            entity.Property(e => e.PageName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.SectionName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ContentKey)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.TemplateJson)
+                .HasColumnType("nvarchar(max)");
+            entity.HasIndex(e => new
+            {
+                e.PageName,
+                e.SectionName,
+                e.ContentKey
+            }).IsUnique();
+        });
+
+
+        modelBuilder.Entity<WebContent>(entity =>
+        {
+            entity.ToTable("WebContent");
+            entity.HasKey(e => e.WebContentId);
+            entity.Property(e => e.PageName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.SectionName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ContentKey)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.DataJson)
+                .HasColumnType("nvarchar(max)");
+            entity.HasIndex(x => new
+            {
+                x.PageName,
+                x.SectionName,
+                x.DisplayOrder
+            });
+            entity.HasOne<WebContentConfiguration>()
+                .WithMany()
+                .HasForeignKey(x => new
+                {
+                    x.PageName,
+                    x.SectionName,
+                    x.ContentKey
+                })
+                .HasPrincipalKey(x => new
+                {
+                    x.PageName,
+                    x.SectionName,
+                    x.ContentKey
+                });
         });
 
     }

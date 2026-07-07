@@ -1,5 +1,6 @@
 ﻿using Litaro.Models;
 using Litaro.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Litaro.Endpoints
 {
@@ -10,7 +11,7 @@ namespace Litaro.Endpoints
             app.MapGet("/academic-assignments", async (AcademicAssignmentService svc) =>
                 Results.Ok(await svc.GetAllAsync()));
 
-            app.MapGet("/academic-assignments/{id}", async (int id, AcademicAssignmentService svc) =>
+            app.MapGet("/academic-assignments/{id}", async (int id, [FromServices] AcademicAssignmentService svc) =>
                 await svc.GetByIdAsync(id) is AcademicAssignment a
                     ? Results.Ok(a)
                     : Results.NotFound());
