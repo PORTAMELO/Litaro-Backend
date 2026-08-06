@@ -63,7 +63,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.Address).HasMaxLength(200).IsRequired();
             entity.Property(e => e.Phone).HasMaxLength(20);
             entity.Property(e => e.Active).HasDefaultValue(true);
-            entity.Property(e => e.CreationDate).HasDefaultValueSql("SYSDATETIME()");
+            entity.Property(e => e.CreationDate).HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Campus>(entity =>
@@ -116,7 +116,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.FirstName).HasMaxLength(100).IsRequired();
             entity.Property(e => e.LastName).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Active).HasDefaultValue(true);
-            entity.Property(e => e.CreationDate).HasDefaultValueSql("SYSDATETIME()");
+            entity.Property(e => e.CreationDate).HasDefaultValueSql("now()");
             entity.HasOne(e => e.Campus)
                 .WithMany()
                 .HasForeignKey(e => e.CampusId)
@@ -257,7 +257,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.ToTable("Enrollment");
             entity.HasKey(e => e.EnrollmentId);
             entity.Property(e => e.Status).HasMaxLength(12).HasDefaultValue("ACTIVE");
-            entity.Property(e => e.EnrollmentDate).HasDefaultValueSql("CAST(GETDATE() AS DATE)");
+            entity.Property(e => e.EnrollmentDate).HasDefaultValueSql("CURRENT_DATE");
             entity.HasIndex(e => e.StudentId);
             entity.HasIndex(e => new { e.ClassroomId, e.YearId });
             entity.HasIndex(e => new { e.StudentId, e.YearId }).IsUnique();
@@ -281,7 +281,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasKey(e => e.GradeScoreId);
             entity.Property(e => e.Value).HasColumnType("decimal(4,2)").IsRequired();
             entity.Property(e => e.Description).HasMaxLength(300);
-            entity.Property(e => e.RecordedDate).HasDefaultValueSql("SYSDATETIME()");
+            entity.Property(e => e.RecordedDate).HasDefaultValueSql("now()");
             entity.HasIndex(e => new { e.EnrollmentId, e.SubjectId, e.PeriodId }).IsUnique();
             entity.HasOne(e => e.Enrollment)
                 .WithMany()
@@ -320,7 +320,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
         {
             entity.ToTable("StudentLog");
             entity.HasKey(e => e.LogId);
-            entity.Property(e => e.Date).HasDefaultValueSql("CAST(GETDATE() AS DATE)");
+            entity.Property(e => e.Date).HasDefaultValueSql("CURRENT_DATE");
             entity.Property(e => e.Type).HasMaxLength(15).IsRequired();
             entity.Property(e => e.Observation).HasMaxLength(1000).IsRequired();
             entity.HasIndex(e => e.EnrollmentId);
@@ -347,8 +347,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.ContentKey)
                 .HasMaxLength(50)
                 .IsUnicode(false);
-            entity.Property(e => e.TemplateJson)
-                .HasColumnType("nvarchar(max)");
             entity.HasIndex(e => new
             {
                 e.PageName,
@@ -371,8 +369,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.ContentKey)
                 .HasMaxLength(50)
                 .IsUnicode(false);
-            entity.Property(e => e.DataJson)
-                .HasColumnType("nvarchar(max)");
             entity.HasIndex(x => new
             {
                 x.PageName,
