@@ -27,7 +27,7 @@ public static class SchoolEndpoints
                 ? Results.NoContent()
                 : Results.NotFound());
 
-        app.MapDelete("/schools/{id}/close", async (int id, [FromServices] SchoolService svc) =>
+        app.MapPatch("/schools/{id}/deactivate", async (int id, [FromServices] SchoolService svc) =>
             await svc.DeactivateAsync(id)
                 ? Results.NoContent()
                 : Results.NotFound());
