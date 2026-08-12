@@ -11,7 +11,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Base de datos
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions =>
+        {
+            npgsqlOptions.CommandTimeout(90); //Segundos
+        }
+    );
+});
 
 // Identity
 builder.Services.AddIdentityCore<User>(options =>

@@ -21,7 +21,7 @@ namespace Litaro.Endpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
-            app.MapDelete("/users/{id}/close", async (int id, [FromServices] UserService svc) =>
+            app.MapPatch("/users/{id}/deactivate", async (int id, [FromServices] UserService svc) =>
                 await svc.DeactivateAsync(id)
                     ? Results.NoContent()
                     : Results.NotFound());
