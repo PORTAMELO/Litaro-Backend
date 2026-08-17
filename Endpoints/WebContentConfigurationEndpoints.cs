@@ -8,10 +8,10 @@ namespace Litaro.Endpoints
     {
         public static void MapWebContentConfigurationEndpoints(this WebApplication app)
         {
-            app.MapGet("/webcontentconfigurations", async ([FromServices] WebContentConfigurationService svc) =>
+            app.MapGet("/webcontentconfigurations", async (WebContentConfigurationService svc) =>
                 Results.Ok(await svc.GetAllAsync())).AllowAnonymous();
 
-            app.MapGet("/webcontentconfigurations/{id}", async (int id, [FromServices] WebContentConfigurationService svc) =>
+            app.MapGet("/webcontentconfigurations/{id}", async (int id, WebContentConfigurationService svc) =>
                 await svc.GetByIdAsync(id) is WebContentConfiguration configuration
                     ? Results.Ok(configuration)
                     : Results.NotFound()).AllowAnonymous();
@@ -22,7 +22,7 @@ namespace Litaro.Endpoints
                     string pageName,
                     string sectionName,
                     string contentKey,
-                    [FromServices] WebContentConfigurationService svc) =>
+                    WebContentConfigurationService svc) =>
                 {
                     var configuration = await svc.GetByPageSectionContentKeyAsync(
                         pageName,
@@ -35,7 +35,7 @@ namespace Litaro.Endpoints
                 }).AllowAnonymous();
 
             app.MapPost("/webcontentconfigurations",
-                async (WebContentConfiguration configuration, [FromServices] WebContentConfigurationService svc) =>
+                async (WebContentConfiguration configuration, WebContentConfigurationService svc) =>
                 {
                     var created = await svc.CreateAsync(configuration);
 
@@ -48,7 +48,7 @@ namespace Litaro.Endpoints
                 async (
                     int id,
                     WebContentConfiguration configuration,
-                    [FromServices] WebContentConfigurationService svc) =>
+                    WebContentConfigurationService svc) =>
                 {
                     return await svc.UpdateAsync(id, configuration)
                         ? Results.NoContent()
@@ -56,7 +56,7 @@ namespace Litaro.Endpoints
                 });
 
             app.MapPatch("/webcontentconfigurations/{id}/deactivate",
-                async (int id, [FromServices] WebContentConfigurationService svc) =>
+                async (int id, WebContentConfigurationService svc) =>
                 {
                     return await svc.DeactivateAsync(id)
                         ? Results.NoContent()
@@ -64,7 +64,7 @@ namespace Litaro.Endpoints
                 });
 
             app.MapPatch("/webcontentconfigurations/{id}/activate",
-                async (int id, [FromServices] WebContentConfigurationService svc) =>
+                async (int id, WebContentConfigurationService svc) =>
                 {
                     return await svc.ActivateAsync(id)
                         ? Results.NoContent()

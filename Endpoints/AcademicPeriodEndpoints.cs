@@ -8,31 +8,31 @@ namespace Litaro.Endpoints
     {
         public static void MapAcademicPeriodEndpoints(this WebApplication app)
         {
-            app.MapGet("/academic-periods", async ([FromServices] AcademicPeriodService svc) =>
+            app.MapGet("/academic-periods", async (AcademicPeriodService svc) =>
                 Results.Ok(await svc.GetAllAsync()));
 
-            app.MapGet("/academic-periods/{id}", async (short id, [FromServices] AcademicPeriodService svc) =>
+            app.MapGet("/academic-periods/{id}", async (short id, AcademicPeriodService svc) =>
                 await svc.GetByIdAsync(id) is AcademicPeriod p
                     ? Results.Ok(p)
                     : Results.NotFound());
 
-            app.MapPost("/academic-periods", async (AcademicPeriod period, [FromServices] AcademicPeriodService svc) =>
+            app.MapPost("/academic-periods", async (AcademicPeriod period, AcademicPeriodService svc) =>
             {
                 var created = await svc.CreateAsync(period);
                 return Results.Created($"/academic-periods/{created.PeriodId}", created);
             });
 
-            app.MapPut("/academic-periods/{id}", async (short id, AcademicPeriod period, [FromServices] AcademicPeriodService svc) =>
+            app.MapPut("/academic-periods/{id}", async (short id, AcademicPeriod period, AcademicPeriodService svc) =>
                 await svc.UpdateAsync(id, period)
                     ? Results.NoContent()
                     : Results.NotFound());
 
-            app.MapDelete("/academic-periods/{id}", async (short id, [FromServices] AcademicPeriodService svc) =>
+            app.MapDelete("/academic-periods/{id}", async (short id, AcademicPeriodService svc) =>
                 await svc.DeleteAsync(id)
                     ? Results.NoContent()
                     : Results.NotFound());
 
-            app.MapPost("/academic-periods/import", async (IFormFile file, [FromServices] AcademicPeriodService svc) =>
+            app.MapPost("/academic-periods/import", async (IFormFile file, AcademicPeriodService svc) =>
             {
                 if (file is null || file.Length == 0)
                     return Results.BadRequest("No se recibió ningún archivo.");

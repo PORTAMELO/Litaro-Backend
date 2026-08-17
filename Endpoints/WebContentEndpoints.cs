@@ -10,13 +10,13 @@ namespace Litaro.Endpoints
         {
             app.MapGet(
                 "/webcontents/admin",
-                async ([FromServices] WebContentService svc) =>
+                async (WebContentService svc) =>
                     Results.Ok(await svc.GetAllForAdminAsync())).AllowAnonymous();
 
-            app.MapGet("/webcontents", async ([FromServices] WebContentService svc) =>
+            app.MapGet("/webcontents", async (WebContentService svc) =>
                 Results.Ok(await svc.GetAllAsync())).AllowAnonymous();
 
-            app.MapGet("/webcontents/{id}", async (int id, [FromServices] WebContentService svc) =>
+            app.MapGet("/webcontents/{id}", async (int id, WebContentService svc) =>
                 await svc.GetByIdAsync(id) is WebContent content
                     ? Results.Ok(content)
                     : Results.NotFound()).AllowAnonymous();
@@ -27,7 +27,7 @@ namespace Litaro.Endpoints
                     string pageName,
                     string sectionName,
                     string contentKey,
-                    [FromServices] WebContentService svc) =>
+                    WebContentService svc) =>
                 {
                     var contents = await svc.GetByPageSectionContentKeyAsync(
                         pageName,
@@ -37,7 +37,7 @@ namespace Litaro.Endpoints
                     return Results.Ok(contents);
                 }).AllowAnonymous();
 
-            app.MapPost("/webcontents", async (WebContent content, [FromServices] WebContentService svc) =>
+            app.MapPost("/webcontents", async (WebContent content, WebContentService svc) =>
                 {
                     var (result, created) = await svc.CreateAsync(content);
 
@@ -68,7 +68,7 @@ namespace Litaro.Endpoints
                 async (
                     int id,
                     [FromBody] WebContent updated,
-                    [FromServices] WebContentService svc) =>
+                    WebContentService svc) =>
                 {
                     if (updated is null)
                     {
@@ -81,7 +81,7 @@ namespace Litaro.Endpoints
                 });
 
             app.MapPatch("/webcontents/{id}/deactivate",
-                async (int id, [FromServices] WebContentService svc) =>
+                async (int id, WebContentService svc) =>
                 {
                     var result = await svc.DeactivateAsync(id);
 
@@ -110,7 +110,7 @@ namespace Litaro.Endpoints
                 });
 
             app.MapPatch("/webcontents/{id}/activate",
-                async (int id, [FromServices] WebContentService svc) =>
+                async (int id, WebContentService svc) =>
                 {
                     var result = await svc.ActivateAsync(id);
 
@@ -139,7 +139,7 @@ namespace Litaro.Endpoints
                 });
 
             app.MapDelete("/webcontents/{id}",
-                async (int id, [FromServices] WebContentService svc) =>
+                async (int id, WebContentService svc) =>
                 {
                     var result = await svc.DeleteAsync(id);
 

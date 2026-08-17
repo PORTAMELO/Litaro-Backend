@@ -48,18 +48,50 @@ namespace Litaro.Services
 
             var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
             var validRelationships = new[] { "FATHER", "MOTHER", "GRANDFATHER", "GRANDMOTHER",
-                                             "UNCLE", "AUNT", "BROTHER", "SISTER", "OTHER" };
+                                     "UNCLE", "AUNT", "BROTHER", "SISTER", "OTHER" };
 
-            using var reader = new StreamReader(csvStream);
-            await reader.ReadLineAsync();
-
-            int lineNumber = 1;
-            string? line;
-            while ((line = await reader.ReadLineAsync()) is not null)
+            var rawLines = new List<(int LineNumber, string Line)>();
+            using (var reader = new StreamReader(csvStream))
             {
-                lineNumber++;
-                if (string.IsNullOrWhiteSpace(line)) continue;
+                await reader.ReadLineAsync();
+                int lineNumber = 1;
+                string? line;
+                while ((line = await reader.ReadLineAsync()) is not null)
+                {
+                    lineNumber++;
+                    if (!string.IsNullOrWhiteSpace(line))
+                        rawLines.Add((lineNumber, line));
+                }
+            }
 
+            var existingDocs = (await db.Users
+                    .Select(u => u.DocumentType + "|" + u.DocumentNumber)
+                    .ToListAsync())
+                .ToHashSet();
+
+            var existingEmails = (await db.Users
+                    .Select(u => u.Email!.ToUpper())
+                    .ToListAsync())
+                .ToHashSet();
+
+            var validCampusIds = (await db.Campuses
+                    .Select(c => c.CampusId)
+                    .ToListAsync())
+                .ToHashSet();
+
+            var studentPairs = await db.Students
+                .Select(s => new { s.User.DocumentNumber, s.StudentId })
+                .ToListAsync();
+
+            var studentIdsByDoc = new Dictionary<string, int>();
+            foreach (var sp in studentPairs)
+            {
+                if (!studentIdsByDoc.ContainsKey(sp.DocumentNumber))
+                    studentIdsByDoc[sp.DocumentNumber] = sp.StudentId;
+            }
+
+            foreach (var (lineNumber, line) in rawLines)
+            {
                 var cols = line.Split(',');
                 if (cols.Length < 10)
                 {
@@ -100,8 +132,7 @@ namespace Litaro.Services
                     continue;
                 }
 
-                if (!int.TryParse(campusIdRaw, out int campusId) ||
-                    !await db.Campuses.AnyAsync(c => c.CampusId == campusId))
+                if (!int.TryParse(campusIdRaw, out int campusId) || !validCampusIds.Contains(campusId))
                 {
                     errors.Add($"Línea {lineNumber}: campus '{campusIdRaw}' no válido o no existe.");
                     continue;
@@ -114,19 +145,20 @@ namespace Litaro.Services
                 }
                 bool primaryContact = primaryContactRaw == "1";
 
-                if (await db.Users.AnyAsync(u => u.DocumentType == documentType && u.DocumentNumber == documentNumber))
+                var docKey = $"{documentType}|{documentNumber}";
+                if (existingDocs.Contains(docKey))
                 {
                     errors.Add($"Línea {lineNumber}: ya existe un usuario con documento {documentType} {documentNumber}.");
                     continue;
                 }
 
-                if (await userManager.FindByEmailAsync(email) is not null)
+                var emailKey = email.ToUpper();
+                if (existingEmails.Contains(emailKey))
                 {
                     errors.Add($"Línea {lineNumber}: el correo '{email}' ya está registrado.");
                     continue;
                 }
 
-                // Buscar estudiantes por tabla Student, sin depender de Role
                 var studentDocNumbers = studentDocNumbersRaw.Split('-');
                 var studentIds = new List<int>();
                 bool studentsValid = true;
@@ -134,12 +166,7 @@ namespace Litaro.Services
                 foreach (var docNum in studentDocNumbers)
                 {
                     var doc = docNum.Trim();
-                    var studentId = await db.Students
-                        .Where(s => s.User.DocumentNumber == doc)
-                        .Select(s => s.StudentId)
-                        .FirstOrDefaultAsync();
-
-                    if (studentId == 0)
+                    if (!studentIdsByDoc.TryGetValue(doc, out var studentId))
                     {
                         errors.Add($"Línea {lineNumber}: no existe un estudiante con documento '{doc}'.");
                         studentsValid = false;
@@ -195,6 +222,9 @@ namespace Litaro.Services
 
                     await db.SaveChangesAsync();
                     imported++;
+
+                    existingDocs.Add(docKey);
+                    existingEmails.Add(emailKey);
                 }
                 catch (DbUpdateException ex)
                 {
@@ -205,5 +235,6 @@ namespace Litaro.Services
 
             return (imported, errors);
         }
+
     }
 }
