@@ -8,31 +8,31 @@ namespace Litaro.Endpoints
     {
         public static void MapTeacherEndpoints(this WebApplication app)
         {
-            app.MapGet("/teachers", async ([FromServices] TeacherService svc) =>
+            app.MapGet("/teachers", async (TeacherService svc) =>
                 Results.Ok(await svc.GetAllAsync()));
 
-            app.MapGet("/teachers/{id}", async (int id, [FromServices] TeacherService svc) =>
+            app.MapGet("/teachers/{id}", async (int id, TeacherService svc) =>
                 await svc.GetByIdAsync(id) is Teacher t
                     ? Results.Ok(t)
                     : Results.NotFound());
 
-            app.MapPost("/teachers", async (Teacher teacher, [FromServices] TeacherService svc) =>
+            app.MapPost("/teachers", async (Teacher teacher, TeacherService svc) =>
             {
                 var created = await svc.CreateAsync(teacher);
                 return Results.Created($"/teachers/{created.TeacherId}", created);
             });
 
-            app.MapPut("/teachers/{id}", async (int id, Teacher teacher, [FromServices] TeacherService svc) =>
+            app.MapPut("/teachers/{id}", async (int id, Teacher teacher, TeacherService svc) =>
                 await svc.UpdateAsync(id, teacher)
                     ? Results.NoContent()
                     : Results.NotFound());
 
-            app.MapDelete("/teachers/{id}", async (int id, [FromServices] TeacherService svc) =>
+            app.MapDelete("/teachers/{id}", async (int id, TeacherService svc) =>
                 await svc.DeleteAsync(id)
                     ? Results.NoContent()
                     : Results.NotFound());
 
-            app.MapPost("/teachers/import", async (IFormFile file, [FromServices] TeacherService svc) =>
+            app.MapPost("/teachers/import", async (IFormFile file, TeacherService svc) =>
             {
                 if (file is null || file.Length == 0)
                     return Results.BadRequest("No se recibió ningún archivo.");
