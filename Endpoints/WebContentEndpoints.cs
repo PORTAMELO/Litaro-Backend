@@ -27,7 +27,7 @@ namespace Litaro.Endpoints
                     string pageName,
                     string sectionName,
                     string contentKey,
-                     WebContentService svc) =>
+                    WebContentService svc) =>
                 {
                     var contents = await svc.GetByPageSectionContentKeyAsync(
                         pageName,
@@ -68,7 +68,7 @@ namespace Litaro.Endpoints
                 async (
                     int id,
                     [FromBody] WebContent updated,
-                     WebContentService svc) =>
+                    WebContentService svc) =>
                 {
                     if (updated is null)
                     {
