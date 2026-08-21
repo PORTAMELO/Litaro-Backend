@@ -104,6 +104,7 @@ builder.Services.AddScoped<ScheduleService>();
 builder.Services.AddScoped<EnrollmentService>();
 builder.Services.AddScoped<GradeScoreService>();
 builder.Services.AddScoped<AttendanceService>();
+builder.Services.AddScoped<StudentLogService>();
 builder.Services.AddScoped<WebContentConfigurationService>();
 builder.Services.AddScoped<WebContentService>();
 
