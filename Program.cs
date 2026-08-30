@@ -122,12 +122,21 @@ app.MapPost("/auth/login", async (LoginRequest req,
     UserManager<User> userManager) =>
 {
     var user = await userManager.FindByEmailAsync(req.Email);
-    if (user is null || !user.Active)
-        return Results.Unauthorized();
+    if (user is null)
+        return Results.Json(new { step = "USER_NULL" }, statusCode: 401);
+
+    if (!user.Active)
+        return Results.Json(new { step = "USER_INACTIVE" }, statusCode: 401);
 
     var result = await signInManager.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
     if (!result.Succeeded)
-        return Results.Unauthorized();
+        return Results.Json(new
+        {
+            step = "PASSWORD_CHECK_FAILED",
+            isLockedOut = result.IsLockedOut,
+            isNotAllowed = result.IsNotAllowed,
+            requiresTwoFactor = result.RequiresTwoFactor
+        }, statusCode: 401);
 
     var roles = await userManager.GetRolesAsync(user);
     var claims = new List<System.Security.Claims.Claim>
