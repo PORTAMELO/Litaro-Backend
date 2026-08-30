@@ -1,6 +1,5 @@
 using Litaro.Models;
 using Litaro.Services;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Litaro.Endpoints
 {
@@ -67,7 +66,7 @@ namespace Litaro.Endpoints
             app.MapPut("/webcontents/{id}",
                 async (
                     int id,
-                    [FromBody] WebContent updated,
+                    WebContent updated,
                     WebContentService svc) =>
                 {
                     if (updated is null)

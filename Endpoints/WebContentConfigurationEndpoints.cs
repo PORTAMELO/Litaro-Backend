@@ -1,6 +1,5 @@
 using Litaro.Models;
 using Litaro.Services;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Litaro.Endpoints
 {

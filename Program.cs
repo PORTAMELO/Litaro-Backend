@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Litaro.Data;
 using Litaro.Endpoints;
 using Litaro.Models;
@@ -108,6 +109,7 @@ builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<StudentLogService>();
 builder.Services.AddScoped<WebContentConfigurationService>();
 builder.Services.AddScoped<WebContentService>();
+builder.Services.AddScoped<SchemaService>();
 
 var app = builder.Build();
 
@@ -141,8 +143,10 @@ app.MapPost("/auth/login", async (LoginRequest req,
     var roles = await userManager.GetRolesAsync(user);
     var claims = new List<System.Security.Claims.Claim>
     {
-        new(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new(System.Security.Claims.ClaimTypes.Email, user.Email!)
+            new(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(System.Security.Claims.ClaimTypes.Email, user.Email!),
+            new(System.Security.Claims.ClaimTypes.GivenName, user.FirstName),
+            new(System.Security.Claims.ClaimTypes.Surname, user.LastName)
     };
     claims.AddRange(roles.Select(r => new System.Security.Claims.Claim(
         System.Security.Claims.ClaimTypes.Role, r)));
@@ -169,6 +173,21 @@ app.MapPost("/auth/logout", async (HttpContext ctx) =>
     return Results.Ok();
 });
 
+app.MapGet("/auth/session", (HttpContext ctx) =>
+{
+    var user = ctx.User;
+
+    if (user.Identity?.IsAuthenticated != true)
+        return Results.Unauthorized();
+
+    return Results.Ok(new
+    {
+        Id = user.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier),
+        Email = user.FindFirstValue(System.Security.Claims.ClaimTypes.Email),
+        Role = user.FindFirstValue(System.Security.Claims.ClaimTypes.Role)
+    });
+});
+
 // Endpoints de negocio
 app.MapSchoolEndpoints();
 app.MapCampusEndpoints();
@@ -190,6 +209,7 @@ app.MapAttendanceEndpoints();
 app.MapStudentLogEndpoints();
 app.MapWebContentConfigurationEndpoints();
 app.MapWebContentEndpoints();
+app.MapSchemaEndpoints();
 
 app.Run();
 
