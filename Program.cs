@@ -78,7 +78,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5173",    // Vite dev
-                "http://localhost:3000"     // Create React App dev
+                "http://localhost:3000",     // Create React App dev
+                "https://litaro-frontend.vercel.app"  // Frontend deploy
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
