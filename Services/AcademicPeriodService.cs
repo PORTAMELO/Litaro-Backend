@@ -6,41 +6,56 @@ namespace Litaro.Services
 {
     public class AcademicPeriodService(AppDbContext db)
     {
-        public Task<List<AcademicPeriod>> GetAllAsync() =>
-            db.AcademicPeriods.ToListAsync();
 
-        public async Task<AcademicPeriod?> GetByIdAsync(short id) =>
-            await db.AcademicPeriods.FindAsync(id);
+        public record CreateAcademicPeriodRequest(short PeriodNumber, DateTime StartDate, DateTime EndDate, short YearId);
 
-        public async Task<AcademicPeriod> CreateAsync(AcademicPeriod period)
+        public Task<List<AcademicPeriod>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            db.AcademicPeriods.Add(period);
-            await db.SaveChangesAsync();
-            return period;
+            var query = db.AcademicPeriods.Include(p => p.AcademicYear).AsQueryable();
+
+            if (filters is not null && filters.Count > 0)
+                query = query.ApplyFilters(filters);
+
+            return query.ToListAsync();
         }
 
-        public async Task<bool> UpdateAsync(short id, AcademicPeriod updated)
+        public async Task<AcademicPeriod> CreateAsync(CreateAcademicPeriodRequest request)
         {
-            var period = await db.AcademicPeriods.FindAsync(id);
-            if (period is null) return false;
+            if (request.PeriodNumber <= 0)
+                throw new InvalidOperationException("El número de periodo debe ser mayor a cero.");
 
-            period.PeriodNumber = updated.PeriodNumber;
-            period.StartDate = updated.StartDate;
-            period.EndDate = updated.EndDate;
-            period.YearId = updated.YearId;
+            if (request.EndDate <= request.StartDate)
+                throw new InvalidOperationException("La fecha de fin debe ser posterior a la fecha de inicio.");
 
-            await db.SaveChangesAsync();
-            return true;
-        }
+            var yearExists = await db.AcademicYears.AnyAsync(y => y.YearId == request.YearId);
+            if (!yearExists)
+                throw new InvalidOperationException($"El año académico {request.YearId} no existe.");
 
-        public async Task<bool> DeleteAsync(short id)
-        {
-            var period = await db.AcademicPeriods.FindAsync(id);
-            if (period is null) return false;
+            var duplicatePeriod = await db.AcademicPeriods
+                .AnyAsync(p => p.YearId == request.YearId && p.PeriodNumber == request.PeriodNumber);
+            if (duplicatePeriod)
+                throw new InvalidOperationException($"El periodo {request.PeriodNumber} ya existe para el año {request.YearId}.");
 
-            db.AcademicPeriods.Remove(period);
-            await db.SaveChangesAsync();
-            return true;
+            var academicPeriod = new AcademicPeriod
+            {
+                PeriodNumber = (byte)request.PeriodNumber,
+                StartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc),
+                EndDate = DateTime.SpecifyKind(request.EndDate, DateTimeKind.Utc),
+                YearId = request.YearId,
+            };
+
+            db.AcademicPeriods.Add(academicPeriod);
+
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
+            }
+
+            return academicPeriod;
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)

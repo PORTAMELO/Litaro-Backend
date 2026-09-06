@@ -84,7 +84,7 @@ builder.Services.AddCors(options =>
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();         // imprescindible para cookies
+              .AllowCredentials();
     });
 });
 
@@ -110,6 +110,10 @@ builder.Services.AddScoped<StudentLogService>();
 builder.Services.AddScoped<WebContentConfigurationService>();
 builder.Services.AddScoped<WebContentService>();
 builder.Services.AddScoped<SchemaService>();
+builder.Services.AddScoped<ColumnConfigurationService>();
+builder.Services.AddScoped<ForeignKeyResolverService>();
+builder.Services.AddScoped<CharacteristicService>();
+builder.Services.AddScoped<LookupService>();
 
 var app = builder.Build();
 
@@ -139,6 +143,11 @@ app.MapPost("/auth/login", async (LoginRequest req,
             isNotAllowed = result.IsNotAllowed,
             requiresTwoFactor = result.RequiresTwoFactor
         }, statusCode: 401);
+
+    if (user.MustChangePassword)
+    {
+        return Results.Json(new { step = "MUST_CHANGE_PASSWORD", userId = user.Id }, statusCode: 200);
+    }
 
     var roles = await userManager.GetRolesAsync(user);
     var claims = new List<System.Security.Claims.Claim>
@@ -210,6 +219,9 @@ app.MapStudentLogEndpoints();
 app.MapWebContentConfigurationEndpoints();
 app.MapWebContentEndpoints();
 app.MapSchemaEndpoints();
+app.MapColumnConfigurationEndpoints();
+app.MapCharacteristicEndpoints();
+app.MapLookupEndpoints();
 
 app.Run();
 

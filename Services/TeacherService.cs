@@ -7,38 +7,102 @@ namespace Litaro.Services
 {
     public class TeacherService(AppDbContext db, UserManager<User> userManager)
     {
-        public Task<List<Teacher>> GetAllAsync() =>
-            db.Teachers.Include(t => t.User).ToListAsync();
+        public const string RoleName = "Profesor";
 
-        public async Task<Teacher?> GetByIdAsync(int id) =>
-            await db.Teachers.Include(t => t.User).FirstOrDefaultAsync(t => t.TeacherId == id);
+        public record CreateTeacherRequest(
+        string DocumentType, string DocumentNumber, string FirstName, string LastName,
+        string Email, string? PhoneNumber, string Password, int CampusId, string Specialty);
 
-        public async Task<Teacher> CreateAsync(Teacher teacher)
+        public record CreateTeacherResult(Teacher Teacher, string? TemporaryPassword);
+
+        public Task<List<Teacher>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
+            var query = db.Teachers.Include(t => t.User).AsQueryable();
+
+            if (filters is not null && filters.Count > 0)
+                query = query.ApplyFilters(filters);
+
+            return query.ToListAsync();
+        }
+
+        public Task<Teacher?> GetByIdAsync(int id) =>
+            db.Teachers.Include(t => t.User).FirstOrDefaultAsync(t => t.TeacherId == id);
+
+        public async Task<CreateTeacherResult> CreateAsync(CreateTeacherRequest request)
+        {
+            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
+            if (!validDocTypes.Contains(request.DocumentType))
+                throw new InvalidOperationException($"Tipo de documento '{request.DocumentType}' no válido.");
+
+            if (string.IsNullOrWhiteSpace(request.Specialty))
+                throw new InvalidOperationException("La especialidad es obligatoria.");
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+                throw new InvalidOperationException("La contraseña es obligatoria.");
+
+            var existingUser = await db.Users.FirstOrDefaultAsync(u =>
+                u.DocumentType == request.DocumentType && u.DocumentNumber == request.DocumentNumber);
+
+            User user;
+
+            if (existingUser is not null)
+            {
+                var alreadyTeacher = await db.Teachers.AnyAsync(t => t.TeacherId == existingUser.Id);
+                if (alreadyTeacher)
+                    throw new InvalidOperationException("Este usuario ya está registrado como docente.");
+
+                user = existingUser;
+            }
+            else
+            {
+                var campusExists = await db.Campuses.AnyAsync(c => c.CampusId == request.CampusId);
+                if (!campusExists)
+                    throw new InvalidOperationException($"La sede con id {request.CampusId} no existe.");
+
+                user = new User
+                {
+                    UserName = request.Email,
+                    Email = request.Email,
+                    PhoneNumber = request.PhoneNumber,
+                    DocumentType = request.DocumentType,
+                    DocumentNumber = request.DocumentNumber,
+                    FirstName = request.FirstName.Trim(),
+                    LastName = request.LastName.Trim(),
+                    CampusId = request.CampusId,
+                    MustChangePassword = true,
+                };
+
+                var createResult = await userManager.CreateAsync(user, request.Password);
+                if (!createResult.Succeeded)
+                    throw new InvalidOperationException(string.Join(", ", createResult.Errors.Select(e => e.Description)));
+            }
+
+            var alreadyInRole = await userManager.IsInRoleAsync(user, RoleName);
+            if (!alreadyInRole)
+            {
+                var roleResult = await userManager.AddToRoleAsync(user, RoleName);
+                if (!roleResult.Succeeded)
+                    throw new InvalidOperationException(string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+            }
+
+            var teacher = new Teacher
+            {
+                TeacherId = user.Id,
+                Specialty = request.Specialty.Trim(),
+            };
+
             db.Teachers.Add(teacher);
-            await db.SaveChangesAsync();
-            return teacher;
-        }
 
-        public async Task<bool> UpdateAsync(int id, Teacher updated)
-        {
-            var teacher = await db.Teachers.FindAsync(id);
-            if (teacher is null) return false;
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
+            }
 
-            teacher.Specialty = updated.Specialty;
-
-            await db.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var teacher = await db.Teachers.FindAsync(id);
-            if (teacher is null) return false;
-
-            db.Teachers.Remove(teacher);
-            await db.SaveChangesAsync();
-            return true;
+            return new CreateTeacherResult(teacher, null);
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)
@@ -148,7 +212,7 @@ namespace Litaro.Services
                     continue;
                 }
 
-                await userManager.AddToRoleAsync(user, "TEACHER");
+                await userManager.AddToRoleAsync(user, RoleName);
 
                 var teacher = new Teacher
                 {

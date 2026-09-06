@@ -7,40 +7,112 @@ namespace Litaro.Services
 {
     public class StudentService(AppDbContext db, UserManager<User> userManager)
     {
-        public Task<List<Student>> GetAllAsync() =>
-            db.Students.Include(s => s.User).ToListAsync();
+        public const string RoleName = "Estudiante";
 
-        public async Task<Student?> GetByIdAsync(int id) =>
-            await db.Students.Include(s => s.User).FirstOrDefaultAsync(s => s.StudentId == id);
+        public record CreateStudentRequest(
+        string DocumentType, string DocumentNumber, string FirstName, string LastName,
+        string Email, string? PhoneNumber, string Password, int CampusId,
+        string StudentCode, DateTime BirthDate, char Gender);
 
-        public async Task<Student> CreateAsync(Student student)
+        public record CreateStudentResult(Student Student, string? TemporaryPassword);
+
+        public Task<List<Student>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
+            var query = db.Students.Include(s => s.User).AsQueryable();
+
+            if (filters is not null && filters.Count > 0)
+                query = query.ApplyFilters(filters);
+
+            return query.ToListAsync();
+        }
+
+        public Task<Student?> GetByIdAsync(int id) =>
+            db.Students.Include(s => s.User).FirstOrDefaultAsync(s => s.StudentId == id);
+
+        public async Task<CreateStudentResult> CreateAsync(CreateStudentRequest request)
+        {
+            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
+            if (!validDocTypes.Contains(request.DocumentType))
+                throw new InvalidOperationException($"Tipo de documento '{request.DocumentType}' no válido.");
+
+            if (request.Gender != 'M' && request.Gender != 'F' && request.Gender != 'O')
+                throw new InvalidOperationException("Género no válido. Use: M, F, O.");
+
+            if (request.BirthDate.Date > DateTime.Today)
+                throw new InvalidOperationException("La fecha de nacimiento no puede ser futura.");
+
+            var codeExists = await db.Students.AnyAsync(s => s.StudentCode == request.StudentCode);
+            if (codeExists)
+                throw new InvalidOperationException($"El código de estudiante '{request.StudentCode}' ya existe.");
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+                throw new InvalidOperationException("La contraseña es obligatoria.");
+
+            var existingUser = await db.Users.FirstOrDefaultAsync(u =>
+                u.DocumentType == request.DocumentType && u.DocumentNumber == request.DocumentNumber);
+
+            User user;
+
+            if (existingUser is not null)
+            {
+                var alreadyStudent = await db.Students.AnyAsync(s => s.StudentId == existingUser.Id);
+                if (alreadyStudent)
+                    throw new InvalidOperationException("Este usuario ya está registrado como estudiante.");
+
+                user = existingUser;
+            }
+            else
+            {
+                var campusExists = await db.Campuses.AnyAsync(c => c.CampusId == request.CampusId);
+                if (!campusExists)
+                    throw new InvalidOperationException($"La sede con id {request.CampusId} no existe.");
+
+                user = new User
+                {
+                    UserName = request.Email,
+                    Email = request.Email,
+                    PhoneNumber = request.PhoneNumber,
+                    DocumentType = request.DocumentType,
+                    DocumentNumber = request.DocumentNumber,
+                    FirstName = request.FirstName.Trim(),
+                    LastName = request.LastName.Trim(),
+                    CampusId = request.CampusId,
+                    MustChangePassword = true,
+                };
+
+                var createResult = await userManager.CreateAsync(user, request.Password);
+                if (!createResult.Succeeded)
+                    throw new InvalidOperationException(string.Join(", ", createResult.Errors.Select(e => e.Description)));
+            }
+
+            var alreadyInRole = await userManager.IsInRoleAsync(user, RoleName);
+            if (!alreadyInRole)
+            {
+                var roleResult = await userManager.AddToRoleAsync(user, RoleName);
+                if (!roleResult.Succeeded)
+                    throw new InvalidOperationException(string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+            }
+
+            var student = new Student
+            {
+                StudentId = user.Id,
+                StudentCode = request.StudentCode,
+                BirthDate = DateTime.SpecifyKind(request.BirthDate, DateTimeKind.Utc),
+                Gender = request.Gender,
+            };
+
             db.Students.Add(student);
-            await db.SaveChangesAsync();
-            return student;
-        }
 
-        public async Task<bool> UpdateAsync(int id, Student updated)
-        {
-            var student = await db.Students.FindAsync(id);
-            if (student is null) return false;
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
+            }
 
-            student.StudentCode = updated.StudentCode;
-            student.BirthDate = updated.BirthDate;
-            student.Gender = updated.Gender;
-
-            await db.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var student = await db.Students.FindAsync(id);
-            if (student is null) return false;
-
-            db.Students.Remove(student);
-            await db.SaveChangesAsync();
-            return true;
+            return new CreateStudentResult(student, null);
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)
@@ -176,7 +248,7 @@ namespace Litaro.Services
                     continue;
                 }
 
-                await userManager.AddToRoleAsync(user, "STUDENT");
+                await userManager.AddToRoleAsync(user, RoleName);
 
                 var student = new Student
                 {

@@ -1,62 +1,44 @@
-﻿using Litaro.Data;
+using System.Security.Cryptography;
+using Litaro.Data;
 using Litaro.Models;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services
 {
-    public class UserService(AppDbContext db, UserManager<User> userManager)
+    public class UserService(AppDbContext db)
     {
-        public Task<List<User>> GetAllAsync() =>
-            db.Users.Where(u => u.Active).ToListAsync();
 
-        public async Task<User?> GetByIdAsync(int id) =>
-            await db.Users.FindAsync(id);
-
-        public async Task<bool> UpdateAsync(int id, User updated)
+        public static string GenerateTemporaryPassword()
         {
-            var user = await db.Users.FindAsync(id);
-            if (user is null) return false;
 
-            user.FirstName = updated.FirstName;
-            user.LastName = updated.LastName;
-            user.Email = updated.Email;
-            user.UserName = updated.Email;
-            user.CampusId = updated.CampusId;
+            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string lower = "abcdefghijkmnpqrstuvwxyz";
+            const string digits = "23456789";
 
-            await db.SaveChangesAsync();
-            return true;
+            var chars = upper + lower + digits;
+            var bytes = RandomNumberGenerator.GetBytes(10);
+
+            var result = new char[10];
+            for (int i = 0; i < 10; i++)
+                result[i] = chars[bytes[i] % chars.Length];
+
+            result[0] = upper[bytes[0] % upper.Length];
+            result[1] = digits[bytes[1] % digits.Length];
+
+            return new string(result);
         }
 
-        public async Task<bool> ChangeRoleAsync(int id, string newRole)
+        public Task<List<User>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var user = await userManager.FindByIdAsync(id.ToString());
-            if (user is null) return false;
+            var query = db.Users.Where(u => u.Active).AsQueryable();
 
-            var currentRoles = await userManager.GetRolesAsync(user);
-            await userManager.RemoveFromRolesAsync(user, currentRoles);
-            await userManager.AddToRoleAsync(user, newRole);
-            return true;
+            if (filters is not null && filters.Count > 0)
+                query = query.ApplyFilters(filters);
+
+            return query.ToListAsync();
         }
 
-        public async Task<bool> DeactivateAsync(int id)
-        {
-            var user = await db.Users.FindAsync(id);
-            if (user is null) return false;
-
-            user.Active = false;
-            await db.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> ActivateAsync(int id)
-        {
-            var user = await db.Users.FindAsync(id);
-            if (user is null) return false;
-
-            user.Active = true;
-            await db.SaveChangesAsync();
-            return true;
-        }
+        public Task<User?> GetByIdAsync(int id) =>
+            db.Users.FirstOrDefaultAsync(u => u.Id == id && u.Active);
     }
 }

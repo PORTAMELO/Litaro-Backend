@@ -1,4 +1,4 @@
-﻿using Litaro.Models;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,29 +7,25 @@ namespace Litaro.Endpoints
     {
         public static void MapGradeEndpoints(this WebApplication app)
         {
-            app.MapGet("/grades", async (GradeService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/grades/{id}", async (int id, GradeService svc) =>
-                await svc.GetByIdAsync(id) is Grade g
-                    ? Results.Ok(g)
-                    : Results.NotFound());
-
-            app.MapPost("/grades", async (Grade grade, GradeService svc) =>
+            app.MapGet("/grades", async (HttpRequest request, GradeService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(grade);
-                return Results.Created($"/grades/{created.GradeId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("Grade", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/grades/{id}", async (int id, Grade grade, GradeService svc) =>
-                await svc.UpdateAsync(id, grade)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+            app.MapGet("/grades/{id:int}", async (int id, GradeService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
 
-            app.MapDelete("/grades/{id}", async (int id, GradeService svc) =>
-                await svc.DeleteAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                var grade = await svc.GetByIdAsync(id);
+
+                return grade is not null
+                    ? Results.Ok(grade)
+                    : Results.NotFound($"No existe un grado con id {id}.");
+            });
         }
     }
 }

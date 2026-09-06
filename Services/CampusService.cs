@@ -6,54 +6,55 @@ namespace Litaro.Services;
 
 public class CampusService(AppDbContext db)
 {
-    public Task<List<Campus>> GetAllAsync()
+
+    public record CreateCampusRequest(string Name, string Address, string? Phone, string Dane, int SchoolId);
+
+    public Task<List<Campus>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
-        return db.Campuses.Where(c => c.Active).ToListAsync();
+        var query = db.Campuses.Where(c => c.Active).AsQueryable();
+
+        if (filters is not null && filters.Count > 0)
+            query = query.ApplyFilters(filters);
+
+        return query.ToListAsync();
     }
 
-    public async Task<Campus?> GetByIdAsync(int id)
+    public async Task<Campus> CreateAsync(CreateCampusRequest request)
     {
-        return await db.Campuses.FindAsync(id);
-    }
+        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Address))
+            throw new InvalidOperationException("Nombre y dirección son obligatorios.");
 
-    public async Task<Campus> CreateAsync(Campus campus)
-    {
+        var schoolExists = await db.Schools.AnyAsync(s => s.SchoolId == request.SchoolId);
+        if (!schoolExists)
+            throw new InvalidOperationException($"El colegio con id {request.SchoolId} no existe.");
+
+        var dane = request.Dane.Trim();
+        var daneExists = await db.Campuses.AnyAsync(c => c.Dane == dane);
+        if (daneExists)
+            throw new InvalidOperationException($"Ya existe una sede registrada con el DANE '{dane}'.");
+
+        var campus = new Campus
+        {
+            Name = request.Name.Trim(),
+            Address = request.Address.Trim(),
+            Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+            Dane = request.Dane.Trim(),
+            SchoolId = request.SchoolId,
+            Active = true,
+        };
+
         db.Campuses.Add(campus);
-        await db.SaveChangesAsync();
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
+        }
+
         return campus;
-    }
-
-    public async Task<bool> UpdateAsync(int id, Campus updated)
-    {
-        var campus = await db.Campuses.FindAsync(id);
-        if (campus is null) return false;
-
-        campus.Name = updated.Name;
-        campus.Address = updated.Address;
-        campus.Phone = updated.Phone;
-
-        await db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> DeactivateAsync(int id)
-    {
-        var campus = await db.Campuses.FindAsync(id);
-        if (campus is null) return false;
-
-        campus.Active = false;
-        await db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> ActivateAsync(int id)
-    {
-        var campus = await db.Campuses.FindAsync(id);
-        if (campus is null) return false;
-
-        campus.Active = true;
-        await db.SaveChangesAsync();
-        return true;
     }
 
     public async Task<(int Imported, List<String> Errors)> ImportFromCsvAsync(Stream csvStream)
@@ -73,7 +74,7 @@ public class CampusService(AppDbContext db)
             if (string.IsNullOrWhiteSpace(line)) continue;
 
             var cols = line.Split(',');
-            
+
             if (cols.Length < 4)
             {
                 errors.Add($"Línea {lineNumber}: columnas insuficientes (se esperan 4).");

@@ -1,4 +1,4 @@
-﻿using Litaro.Models;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,34 +7,25 @@ namespace Litaro.Endpoints
     {
         public static void MapClassroomEndpoints(this WebApplication app)
         {
-            app.MapGet("/classrooms", async (ClassroomService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/classrooms/{id}", async (int id, ClassroomService svc) =>
-                await svc.GetByIdAsync(id) is Classroom c
-                    ? Results.Ok(c)
-                    : Results.NotFound());
-
-            app.MapPost("/classrooms", async (Classroom classroom, ClassroomService svc) =>
+            app.MapGet("/classrooms", async (HttpRequest request, ClassroomService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(classroom);
-                return Results.Created($"/classrooms/{created.ClassroomId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("Classroom", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/classrooms/{id}", async (int id, Classroom classroom, ClassroomService svc) =>
-                await svc.UpdateAsync(id, classroom)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+            app.MapGet("/classrooms/{id:int}", async (int id, ClassroomService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
 
-            app.MapPatch("/classrooms/{id}/deactivate", async (int id, ClassroomService svc) =>
-                await svc.DeactivateAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                var classroom = await svc.GetByIdAsync(id);
 
-            app.MapPatch("/classrooms/{id}/activate", async (int id, ClassroomService svc) =>
-                await svc.ActivateAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                return classroom is not null
+                    ? Results.Ok(classroom)
+                    : Results.NotFound($"No existe un salón activo con id {id}.");
+            });
         }
 
     }
