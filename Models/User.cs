@@ -2,7 +2,7 @@
 
 namespace Litaro.Models
 {
-    public class User: IdentityUser<int>
+    public class User : IdentityUser<int>
     {
         public string DocumentType { get; set; } = string.Empty;
         public string DocumentNumber { get; set; } = string.Empty;
@@ -10,6 +10,7 @@ namespace Litaro.Models
         public string LastName { get; set; } = string.Empty;
         public bool Active { get; set; } = true;
         public DateTime CreationDate { get; set; } = DateTime.UtcNow;
+        public bool MustChangePassword { get; set; }
         public int CampusId { get; set; }
         public Campus Campus { get; set; } = null!;
     }

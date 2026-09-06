@@ -3,6 +3,7 @@ using System;
 using Litaro.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Litaro.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905045538_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -192,65 +195,6 @@ namespace Litaro.Migrations
                     b.ToTable("Campus", "public");
                 });
 
-            modelBuilder.Entity("Litaro.Models.Characteristic", b =>
-                {
-                    b.Property<int>("CharacteristicId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CharacteristicId"));
-
-                    b.Property<DateTime>("CreationDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("CharacteristicId");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Characteristic", "public");
-                });
-
-            modelBuilder.Entity("Litaro.Models.CharacteristicDetail", b =>
-                {
-                    b.Property<int>("CharacteristicDetailId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CharacteristicDetailId"));
-
-                    b.Property<int>("CharacteristicId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreationDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("Valor")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.HasKey("CharacteristicDetailId");
-
-                    b.HasIndex("CharacteristicId");
-
-                    b.ToTable("CharacteristicDetail", "public");
-                });
-
             modelBuilder.Entity("Litaro.Models.Classroom", b =>
                 {
                     b.Property<int>("ClassroomId")
@@ -295,9 +239,6 @@ namespace Litaro.Migrations
                     b.Property<string>("Alias")
                         .HasColumnType("text");
 
-                    b.Property<int?>("CharacteristicId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("ColumnName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -316,8 +257,6 @@ namespace Litaro.Migrations
                         .HasColumnType("boolean");
 
                     b.HasKey("ColumnConfigurationId");
-
-                    b.HasIndex("CharacteristicId");
 
                     b.ToTable("ColumnConfigurations", "public");
                 });
@@ -1076,17 +1015,6 @@ namespace Litaro.Migrations
                     b.Navigation("School");
                 });
 
-            modelBuilder.Entity("Litaro.Models.CharacteristicDetail", b =>
-                {
-                    b.HasOne("Litaro.Models.Characteristic", "Characteristic")
-                        .WithMany()
-                        .HasForeignKey("CharacteristicId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Characteristic");
-                });
-
             modelBuilder.Entity("Litaro.Models.Classroom", b =>
                 {
                     b.HasOne("Litaro.Models.Campus", "Campus")
@@ -1104,16 +1032,6 @@ namespace Litaro.Migrations
                     b.Navigation("Campus");
 
                     b.Navigation("Grade");
-                });
-
-            modelBuilder.Entity("Litaro.Models.ColumnConfiguration", b =>
-                {
-                    b.HasOne("Litaro.Models.Characteristic", "Characteristic")
-                        .WithMany()
-                        .HasForeignKey("CharacteristicId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Characteristic");
                 });
 
             modelBuilder.Entity("Litaro.Models.Enrollment", b =>

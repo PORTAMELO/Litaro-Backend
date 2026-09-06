@@ -1,4 +1,4 @@
-﻿using Litaro.Models;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,29 +7,42 @@ namespace Litaro.Endpoints
     {
         public static void MapTeacherEndpoints(this WebApplication app)
         {
-            app.MapGet("/teachers", async (TeacherService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/teachers/{id}", async (int id, TeacherService svc) =>
-                await svc.GetByIdAsync(id) is Teacher t
-                    ? Results.Ok(t)
-                    : Results.NotFound());
-
-            app.MapPost("/teachers", async (Teacher teacher, TeacherService svc) =>
+            app.MapGet("/teachers", async (HttpRequest request, TeacherService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(teacher);
-                return Results.Created($"/teachers/{created.TeacherId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("Teacher", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/teachers/{id}", async (int id, Teacher teacher, TeacherService svc) =>
-                await svc.UpdateAsync(id, teacher)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+            app.MapGet("/teachers/{id:int}", async (int id, TeacherService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
 
-            app.MapDelete("/teachers/{id}", async (int id, TeacherService svc) =>
-                await svc.DeleteAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                var teacher = await svc.GetByIdAsync(id);
+
+                return teacher is not null
+                    ? Results.Ok(teacher)
+                    : Results.NotFound($"No existe un docente con id {id}.");
+            });
+
+            app.MapPost("/teachers", async (TeacherService.CreateTeacherRequest request, TeacherService svc) =>
+            {
+                try
+                {
+                    var result = await svc.CreateAsync(request);
+                    return Results.Ok(new
+                    {
+                        teacher = result.Teacher,
+                        temporaryPassword = result.TemporaryPassword
+                    });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
             app.MapPost("/teachers/import", async (IFormFile file, TeacherService svc) =>
             {

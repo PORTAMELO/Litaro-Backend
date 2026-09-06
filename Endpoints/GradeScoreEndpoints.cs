@@ -1,4 +1,4 @@
-﻿using Litaro.Models;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,29 +7,25 @@ namespace Litaro.Endpoints
     {
         public static void MapGradeScoreEndpoints(this WebApplication app)
         {
-            app.MapGet("/grade-scores", async (GradeScoreService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/grade-scores/{id}", async (int id, GradeScoreService svc) =>
-                await svc.GetByIdAsync(id) is GradeScore gs
-                    ? Results.Ok(gs)
-                    : Results.NotFound());
-
-            app.MapPost("/grade-scores", async (GradeScore gradeScore, GradeScoreService svc) =>
+            app.MapGet("/grade-scores", async (HttpRequest request, GradeScoreService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(gradeScore);
-                return Results.Created($"/grade-scores/{created.GradeScoreId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("GradeScore", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/grade-scores/{id}", async (int id, GradeScore gradeScore, GradeScoreService svc) =>
-                await svc.UpdateAsync(id, gradeScore)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+            app.MapGet("/grade-scores/{id:int}", async (int id, GradeScoreService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
 
-            app.MapDelete("/grade-scores/{id}", async (int id, GradeScoreService svc) =>
-                await svc.DeleteAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                var gradeScore = await svc.GetByIdAsync(id);
+
+                return gradeScore is not null
+                    ? Results.Ok(gradeScore)
+                    : Results.NotFound($"No existe una nota con id {id}.");
+            });
         }
     }
 }

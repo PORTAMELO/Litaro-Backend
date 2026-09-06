@@ -6,34 +6,26 @@ namespace Litaro.Endpoints
     {
         public static void MapCampusEndpoints(this WebApplication app)
         {
-            app.MapGet("/campus", async (CampusService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/campus/{id}", async (int id, CampusService svc) =>
-                await svc.GetByIdAsync(id) is Campus c
-                    ? Results.Ok(c)
-                    : Results.NotFound());
-
-            app.MapPost("/campus", async (Campus campus, CampusService svc) =>
+            app.MapGet("/campus", async (HttpRequest request, CampusService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(campus);
-                return Results.Created($"/campus/{created.CampusId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("Campus", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/campus/{id}", async (int id, Campus campus, CampusService svc) =>
-                await svc.UpdateAsync(id, campus)
-                ? Results.NoContent()
-                : Results.NotFound());
-
-            app.MapPatch("/campus/{id}/deactivate", async (int id, CampusService svc) =>
-                await svc.DeactivateAsync(id)
-                ? Results.NoContent()
-                : Results.NotFound());
-
-            app.MapPatch("/campus/{id}/activate", async (int id, CampusService svc) =>
-                await svc.ActivateAsync(id)
-                ? Results.NoContent()
-                : Results.NotFound());
+            app.MapPost("/campus", async (CampusService.CreateCampusRequest request, CampusService svc) =>
+            {
+                try
+                {
+                    var created = await svc.CreateAsync(request);
+                    return Results.Ok(created);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(ex.Message);
+                }
+            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
             app.MapPost("/campus/import", async (IFormFile file, CampusService svc) =>
             {

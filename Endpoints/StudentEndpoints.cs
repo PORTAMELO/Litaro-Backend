@@ -1,4 +1,4 @@
-﻿using Litaro.Models;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,29 +7,42 @@ namespace Litaro.Endpoints
     {
         public static void MapStudentEndpoints(this WebApplication app)
         {
-            app.MapGet("/students", async (StudentService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/students/{id}", async (int id, StudentService svc) =>
-                await svc.GetByIdAsync(id) is Student s
-                    ? Results.Ok(s)
-                    : Results.NotFound());
-
-            app.MapPost("/students", async (Student student, StudentService svc) =>
+            app.MapGet("/students", async (HttpRequest request, StudentService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(student);
-                return Results.Created($"/students/{created.StudentId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("Student", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/students/{id}", async (int id, Student student, StudentService svc) =>
-                await svc.UpdateAsync(id, student)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+            app.MapGet("/students/{id:int}", async (int id, StudentService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
 
-            app.MapDelete("/students/{id}", async (int id, StudentService svc) =>
-                await svc.DeleteAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                var student = await svc.GetByIdAsync(id);
+
+                return student is not null
+                    ? Results.Ok(student)
+                    : Results.NotFound($"No existe un estudiante con id {id}.");
+            });
+
+            app.MapPost("/students", async (StudentService.CreateStudentRequest request, StudentService svc) =>
+            {
+                try
+                {
+                    var result = await svc.CreateAsync(request);
+                    return Results.Ok(new
+                    {
+                        student = result.Student,
+                        temporaryPassword = result.TemporaryPassword
+                    });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
             app.MapPost("/students/import", async (IFormFile file, StudentService svc) =>
             {

@@ -1,4 +1,4 @@
-﻿using Litaro.Models;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,29 +7,25 @@ namespace Litaro.Endpoints
     {
         public static void MapSubjectEndpoints(this WebApplication app)
         {
-            app.MapGet("/subjects", async (SubjectService svc) =>
-                Results.Ok(await svc.GetAllAsync()));
-
-            app.MapGet("/subjects/{id}", async (int id, SubjectService svc) =>
-                await svc.GetByIdAsync(id) is Subject s
-                    ? Results.Ok(s)
-                    : Results.NotFound());
-
-            app.MapPost("/subjects", async (Subject subject, SubjectService svc) =>
+            app.MapGet("/subjects", async (HttpRequest request, SubjectService svc, ForeignKeyResolverService fkSvc) =>
             {
-                var created = await svc.CreateAsync(subject);
-                return Results.Created($"/subjects/{created.SubjectId}", created);
+                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+                var records = await svc.GetAllAsync(filters);
+                var lookups = await fkSvc.BuildLookupsAsync("Subject", records);
+                return Results.Ok(new { records, lookups });
             });
 
-            app.MapPut("/subjects/{id}", async (int id, Subject subject, SubjectService svc) =>
-                await svc.UpdateAsync(id, subject)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+            app.MapGet("/subjects/{id:int}", async (int id, SubjectService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
 
-            app.MapDelete("/subjects/{id}", async (int id, SubjectService svc) =>
-                await svc.DeleteAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
+                var subject = await svc.GetByIdAsync(id);
+
+                return subject is not null
+                    ? Results.Ok(subject)
+                    : Results.NotFound($"No existe una materia con id {id}.");
+            });
         }
     }
 }

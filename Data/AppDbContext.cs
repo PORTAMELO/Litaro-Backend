@@ -49,9 +49,16 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<WebContentConfiguration> WebContentConfigurations => Set<WebContentConfiguration>();
 
+    public DbSet<ColumnConfiguration> ColumnConfigurations => Set<ColumnConfiguration>();
+
+    public DbSet<Characteristic> Characteristics => Set<Characteristic>();
+
+    public DbSet<CharacteristicDetail> CharacteristicDetails => Set<CharacteristicDetail>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.HasDefaultSchema("public");
 
         modelBuilder.Entity<School>(entity =>
         {
@@ -89,7 +96,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.YearId).ValueGeneratedNever();
             entity.Property(e => e.StartDate).IsRequired();
             entity.Property(e => e.EndDate).IsRequired();
-            entity.Property(e => e.Status).HasMaxLength(10).HasDefaultValue("ACTIVE");
+            entity.Property(e => e.Active).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<AcademicPeriod>(entity =>
@@ -390,6 +397,37 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                     x.ContentKey
                 });
         });
+
+        modelBuilder.Entity<Characteristic>(entity =>
+        {
+            entity.ToTable("Characteristic");
+            entity.HasKey(e => e.CharacteristicId);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.CreationDate).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<CharacteristicDetail>(entity =>
+        {
+            entity.ToTable("CharacteristicDetail");
+            entity.HasKey(e => e.CharacteristicDetailId);
+            entity.Property(e => e.Nombre).HasMaxLength(150).IsRequired();
+            entity.Property(e => e.Valor).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.CreationDate).HasDefaultValueSql("now()");
+            entity.HasOne(e => e.Characteristic)
+                .WithMany()
+                .HasForeignKey(e => e.CharacteristicId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ColumnConfiguration>(entity =>
+        {
+            entity.HasOne(e => e.Characteristic)
+                .WithMany()
+                .HasForeignKey(e => e.CharacteristicId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
 
     }
 }
