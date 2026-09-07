@@ -7,32 +7,29 @@ namespace Litaro.Endpoints
     {
         public static void MapAcademicPeriodEndpoints(this WebApplication app)
         {
-            app.MapGet("/academic-periods", async (HttpRequest request, AcademicPeriodService svc, ForeignKeyResolverService fkSvc) =>
-            {
-                var filters = new Dictionary<string, string>();
-                foreach (var (key, value) in request.Query)
-                {
-                    if (!string.IsNullOrEmpty(value))
-                        filters[key] = value;
-                }
+            app.MapGet("/academic-periods", async (AcademicPeriodService svc) =>
+                Results.Ok(await svc.GetAllAsync()));
 
-                var records = await svc.GetAllAsync(filters);
-                var lookups = await fkSvc.BuildLookupsAsync("AcademicPeriod", records);
-                return Results.Ok(new { records, lookups });
+            app.MapGet("/academic-periods/{id}", async (short id, AcademicPeriodService svc) =>
+                await svc.GetByIdAsync(id) is AcademicPeriod p
+                    ? Results.Ok(p)
+                    : Results.NotFound());
+
+            app.MapPost("/academic-periods", async (AcademicPeriod period, AcademicPeriodService svc) =>
+            {
+                var created = await svc.CreateAsync(period);
+                return Results.Created($"/academic-periods/{created.PeriodId}", created);
             });
 
-            app.MapPost("/academic-periods", async (AcademicPeriodService.CreateAcademicPeriodRequest request, AcademicPeriodService svc) =>
-            {
-                try
-                {
-                    var created = await svc.CreateAsync(request);
-                    return Results.Ok(created);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.BadRequest(ex.Message);
-                }
-            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+            app.MapPut("/academic-periods/{id}", async (short id, AcademicPeriod period, AcademicPeriodService svc) =>
+                await svc.UpdateAsync(id, period)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+
+            app.MapDelete("/academic-periods/{id}", async (short id, AcademicPeriodService svc) =>
+                await svc.DeleteAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
             app.MapPost("/academic-periods/import", async (IFormFile file, AcademicPeriodService svc) =>
             {

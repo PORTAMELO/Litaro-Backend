@@ -1,4 +1,4 @@
-using Litaro.Models;
+﻿using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,25 +7,29 @@ namespace Litaro.Endpoints
     {
         public static void MapScheduleEndpoints(this WebApplication app)
         {
-            app.MapGet("/schedules", async (HttpRequest request, ScheduleService svc, ForeignKeyResolverService fkSvc) =>
+            app.MapGet("/schedules", async (ScheduleService svc) =>
+                Results.Ok(await svc.GetAllAsync()));
+
+            app.MapGet("/schedules/{id}", async (int id, ScheduleService svc) =>
+                await svc.GetByIdAsync(id) is Schedule s
+                    ? Results.Ok(s)
+                    : Results.NotFound());
+
+            app.MapPost("/schedules", async (Schedule schedule, ScheduleService svc) =>
             {
-                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
-                var records = await svc.GetAllAsync(filters);
-                var lookups = await fkSvc.BuildLookupsAsync("Schedule", records);
-                return Results.Ok(new { records, lookups });
+                var created = await svc.CreateAsync(schedule);
+                return Results.Created($"/schedules/{created.ScheduleId}", created);
             });
 
-            app.MapGet("/schedules/{id:int}", async (int id, ScheduleService svc) =>
-            {
-                if (id <= 0)
-                    return Results.BadRequest("El id debe ser un entero positivo.");
+            app.MapPut("/schedules/{id}", async (int id, Schedule schedule, ScheduleService svc) =>
+                await svc.UpdateAsync(id, schedule)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
-                var schedule = await svc.GetByIdAsync(id);
-
-                return schedule is not null
-                    ? Results.Ok(schedule)
-                    : Results.NotFound($"No existe un horario con id {id}.");
-            });
+            app.MapDelete("/schedules/{id}", async (int id, ScheduleService svc) =>
+                await svc.DeleteAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
         }
 
     }

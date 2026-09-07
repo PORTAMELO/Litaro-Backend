@@ -1,4 +1,4 @@
-using Litaro.Models;
+﻿using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,23 +7,34 @@ namespace Litaro.Endpoints
     {
         public static void MapAcademicAssignmentEndpoints(this WebApplication app)
         {
-            app.MapGet("/academic-assignments", async (HttpRequest request, AcademicAssignmentService svc) =>
+            app.MapGet("/academic-assignments", async (AcademicAssignmentService svc) =>
+                Results.Ok(await svc.GetAllAsync()));
+
+            app.MapGet("/academic-assignments/{id}", async (int id, AcademicAssignmentService svc) =>
+                await svc.GetByIdAsync(id) is AcademicAssignment a
+                    ? Results.Ok(a)
+                    : Results.NotFound());
+
+            app.MapPost("/academic-assignments", async (AcademicAssignment assignment, AcademicAssignmentService svc) =>
             {
-                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
-                return Results.Ok(await svc.GetAllAsync(filters));
+                var created = await svc.CreateAsync(assignment);
+                return Results.Created($"/academic-assignments/{created.AssignmentId}", created);
             });
 
-            app.MapGet("/academic-assignments/{id:int}", async (int id, AcademicAssignmentService svc) =>
-            {
-                if (id <= 0)
-                    return Results.BadRequest("El id debe ser un entero positivo.");
+            app.MapPut("/academic-assignments/{id}", async (int id, AcademicAssignment assignment, AcademicAssignmentService svc) =>
+                await svc.UpdateAsync(id, assignment)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
-                var assignment = await svc.GetByIdAsync(id);
+            app.MapPatch("/academic-assignments/{id}/deactivate", async (int id, AcademicAssignmentService svc) =>
+                await svc.DeactivateAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
-                return assignment is not null
-                    ? Results.Ok(assignment)
-                    : Results.NotFound($"No existe una asignación activa con id {id}.");
-            });
+            app.MapPatch("/academic-assignments/{id}/activate", async (int id, AcademicAssignmentService svc) =>
+                await svc.ActivateAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
         }
 
     }

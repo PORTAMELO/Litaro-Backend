@@ -5,145 +5,40 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services
 {
-    public class ParentService(AppDbContext db, UserManager<User> userManager, CharacteristicService characteristicSvc)
+    public class ParentService(AppDbContext db, UserManager<User> userManager)
     {
-        public const string RoleName = "Acudiente";
+        public Task<List<Parent>> GetAllAsync() =>
+            db.Parents.Include(p => p.User).ToListAsync();
 
-        private static readonly string[] FallbackRelationships =
+        public async Task<Parent?> GetByIdAsync(int id) =>
+            await db.Parents.Include(p => p.User).FirstOrDefaultAsync(p => p.ParentId == id);
+
+        public async Task<Parent> CreateAsync(Parent parent)
         {
-            "FATHER", "MOTHER", "GRANDFATHER", "GRANDMOTHER",
-            "UNCLE", "AUNT", "BROTHER", "SISTER", "OTHER"
-        };
-
-        private async Task<string[]> GetValidRelationshipsAsync()
-        {
-            var configured = await characteristicSvc.GetValidValuesForColumnAsync("Parent", "Relationship");
-            return configured?.ToArray() ?? FallbackRelationships;
-        }
-
-        public record CreateParentRequest(
-        string DocumentType, string DocumentNumber, string FirstName, string LastName,
-        string Email, string? PhoneNumber, string Password, int CampusId, string Relationship, List<int>? StudentIds);
-
-        public record CreateParentResult(Parent Parent, List<ParentStudent> Links, string? TemporaryPassword);
-
-        public Task<List<Parent>> GetAllAsync(IDictionary<string, string>? filters = null)
-        {
-            var query = db.Parents.Include(p => p.User).AsQueryable();
-
-            if (filters is not null && filters.Count > 0)
-                query = query.ApplyFilters(filters);
-
-            return query.ToListAsync();
-        }
-
-        public Task<Parent?> GetByIdAsync(int id) =>
-            db.Parents.Include(p => p.User).FirstOrDefaultAsync(p => p.ParentId == id);
-
-        public async Task<CreateParentResult> CreateAsync(CreateParentRequest request)
-        {
-            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
-            if (!validDocTypes.Contains(request.DocumentType))
-                throw new InvalidOperationException($"Tipo de documento '{request.DocumentType}' no válido.");
-
-            var validRelationships = await GetValidRelationshipsAsync();
-            if (!validRelationships.Contains(request.Relationship))
-                throw new InvalidOperationException($"Parentesco '{request.Relationship}' no válido.");
-
-            var studentIds = (request.StudentIds ?? new List<int>()).Distinct().ToList();
-
-            if (studentIds.Count > 0)
-            {
-                var foundIds = await db.Students
-                    .Where(s => studentIds.Contains(s.StudentId))
-                    .Select(s => s.StudentId)
-                    .ToListAsync();
-
-                var missing = studentIds.Except(foundIds).ToList();
-                if (missing.Count > 0)
-                    throw new InvalidOperationException($"No existen estudiantes con id: {string.Join(", ", missing)}.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new InvalidOperationException("La contraseña es obligatoria.");
-
-            var existingUser = await db.Users.FirstOrDefaultAsync(u =>
-                u.DocumentType == request.DocumentType && u.DocumentNumber == request.DocumentNumber);
-
-            User user;
-
-            if (existingUser is not null)
-            {
-                var alreadyParent = await db.Parents.AnyAsync(p => p.ParentId == existingUser.Id);
-                if (alreadyParent)
-                    throw new InvalidOperationException("Este usuario ya está registrado como acudiente.");
-
-                user = existingUser;
-            }
-            else
-            {
-                var campusExists = await db.Campuses.AnyAsync(c => c.CampusId == request.CampusId);
-                if (!campusExists)
-                    throw new InvalidOperationException($"La sede con id {request.CampusId} no existe.");
-
-                user = new User
-                {
-                    UserName = request.Email,
-                    Email = request.Email,
-                    PhoneNumber = request.PhoneNumber,
-                    DocumentType = request.DocumentType,
-                    DocumentNumber = request.DocumentNumber,
-                    FirstName = request.FirstName.Trim(),
-                    LastName = request.LastName.Trim(),
-                    CampusId = request.CampusId,
-                    MustChangePassword = true,
-                };
-
-                var createResult = await userManager.CreateAsync(user, request.Password);
-                if (!createResult.Succeeded)
-                    throw new InvalidOperationException(string.Join(", ", createResult.Errors.Select(e => e.Description)));
-            }
-
-            var alreadyInRole = await userManager.IsInRoleAsync(user, RoleName);
-            if (!alreadyInRole)
-            {
-                var roleResult = await userManager.AddToRoleAsync(user, RoleName);
-                if (!roleResult.Succeeded)
-                    throw new InvalidOperationException(string.Join(", ", roleResult.Errors.Select(e => e.Description)));
-            }
-
-            var parent = new Parent
-            {
-                ParentId = user.Id,
-                Relationship = request.Relationship,
-            };
-
             db.Parents.Add(parent);
+            await db.SaveChangesAsync();
+            return parent;
+        }
 
-            var links = new List<ParentStudent>();
-            foreach (var studentId in studentIds)
-            {
-                var link = new ParentStudent
-                {
-                    ParentId = user.Id,
-                    StudentId = studentId,
-                    PrimaryContact = true,
-                };
+        public async Task<bool> UpdateAsync(int id, Parent updated)
+        {
+            var parent = await db.Parents.FindAsync(id);
+            if (parent is null) return false;
 
-                links.Add(link);
-                db.ParentStudents.Add(link);
-            }
+            parent.Relationship = updated.Relationship;
 
-            try
-            {
-                await db.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
-            }
+            await db.SaveChangesAsync();
+            return true;
+        }
 
-            return new CreateParentResult(parent, links, null);
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var parent = await db.Parents.FindAsync(id);
+            if (parent is null) return false;
+
+            db.Parents.Remove(parent);
+            await db.SaveChangesAsync();
+            return true;
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)
@@ -152,7 +47,8 @@ namespace Litaro.Services
             int imported = 0;
 
             var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
-            var validRelationships = await GetValidRelationshipsAsync();
+            var validRelationships = new[] { "FATHER", "MOTHER", "GRANDFATHER", "GRANDMOTHER",
+                                     "UNCLE", "AUNT", "BROTHER", "SISTER", "OTHER" };
 
             var rawLines = new List<(int LineNumber, string Line)>();
             using (var reader = new StreamReader(csvStream))
@@ -301,7 +197,7 @@ namespace Litaro.Services
                     continue;
                 }
 
-                await userManager.AddToRoleAsync(user, RoleName);
+                await userManager.AddToRoleAsync(user, "PARENT");
 
                 var parent = new Parent
                 {

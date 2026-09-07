@@ -1,4 +1,4 @@
-using Litaro.Models;
+﻿using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,43 +7,29 @@ namespace Litaro.Endpoints
     {
         public static void MapParentEndpoints(this WebApplication app)
         {
-            app.MapGet("/parents", async (HttpRequest request, ParentService svc, ForeignKeyResolverService fkSvc) =>
+            app.MapGet("/parents", async (ParentService svc) =>
+                Results.Ok(await svc.GetAllAsync()));
+
+            app.MapGet("/parents/{id}", async (int id, ParentService svc) =>
+                await svc.GetByIdAsync(id) is Parent p
+                    ? Results.Ok(p)
+                    : Results.NotFound());
+
+            app.MapPost("/parents", async (Parent parent, ParentService svc) =>
             {
-                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
-                var records = await svc.GetAllAsync(filters);
-                var lookups = await fkSvc.BuildLookupsAsync("Parent", records);
-                return Results.Ok(new { records, lookups });
+                var created = await svc.CreateAsync(parent);
+                return Results.Created($"/parents/{created.ParentId}", created);
             });
 
-            app.MapGet("/parents/{id:int}", async (int id, ParentService svc) =>
-            {
-                if (id <= 0)
-                    return Results.BadRequest("El id debe ser un entero positivo.");
+            app.MapPut("/parents/{id}", async (int id, Parent parent, ParentService svc) =>
+                await svc.UpdateAsync(id, parent)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
-                var parent = await svc.GetByIdAsync(id);
-
-                return parent is not null
-                    ? Results.Ok(parent)
-                    : Results.NotFound($"No existe un acudiente con id {id}.");
-            });
-
-            app.MapPost("/parents", async (ParentService.CreateParentRequest request, ParentService svc) =>
-            {
-                try
-                {
-                    var result = await svc.CreateAsync(request);
-                    return Results.Ok(new
-                    {
-                        parent = result.Parent,
-                        links = result.Links,
-                        temporaryPassword = result.TemporaryPassword
-                    });
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.BadRequest(new { message = ex.Message });
-                }
-            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+            app.MapDelete("/parents/{id}", async (int id, ParentService svc) =>
+                await svc.DeleteAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
             app.MapPost("/parents/import", async (IFormFile file, ParentService svc) =>
             {
@@ -57,7 +43,8 @@ namespace Litaro.Endpoints
                 var (imported, errors) = await svc.ImportFromCsvAsync(stream);
 
                 return Results.Ok(new { Imported = imported, Errors = errors });
-            }).DisableAntiforgery();
+            })
+.DisableAntiforgery();
 
         }
     }

@@ -1,4 +1,4 @@
-using Litaro.Models;
+﻿using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints
@@ -7,25 +7,28 @@ namespace Litaro.Endpoints
     {
         public static void MapUserEndpoints(this WebApplication app)
         {
-            app.MapGet("/users", async (HttpRequest request, UserService svc, ForeignKeyResolverService fkSvc) =>
-            {
-                var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
-                var records = await svc.GetAllAsync(filters);
-                var lookups = await fkSvc.BuildLookupsAsync("User", records);
-                return Results.Ok(new { records, lookups });
-            });
+            app.MapGet("/users", async (UserService svc) =>
+                Results.Ok(await svc.GetAllAsync()));
 
-            app.MapGet("/users/{id:int}", async (int id, UserService svc) =>
-            {
-                if (id <= 0)
-                    return Results.BadRequest("El id debe ser un entero positivo.");
+            app.MapGet("/users/{id}", async (int id, UserService svc) =>
+                await svc.GetByIdAsync(id) is User u
+                    ? Results.Ok(u)
+                    : Results.NotFound());
 
-                var user = await svc.GetByIdAsync(id);
+            app.MapPut("/users/{id}", async (int id, User user, UserService svc) =>
+                await svc.UpdateAsync(id, user)
+                    ? Results.NoContent()
+                    : Results.NotFound());
 
-                return user is not null
-                    ? Results.Ok(user)
-                    : Results.NotFound($"No existe un usuario activo con id {id}.");
-            });
+            app.MapPatch("/users/{id}/deactivate", async (int id, UserService svc) =>
+                await svc.DeactivateAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+
+            app.MapPatch("/users/{id}/activate", async (int id, UserService svc) =>
+                await svc.ActivateAsync(id)
+                    ? Results.NoContent()
+                    : Results.NotFound());
         }
     }
 }

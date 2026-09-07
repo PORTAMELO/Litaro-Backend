@@ -434,5 +434,3 @@ appsettings.Local.json
 
 # Configuracion vscode
 .vscode/
-
-graphify-out

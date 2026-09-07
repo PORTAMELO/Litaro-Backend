@@ -7,26 +7,34 @@ public static class SchoolEndpoints
 {
     public static void MapSchoolEndpoints(this WebApplication app)
     {
-        app.MapGet("/schools", async (HttpRequest request, SchoolService svc, ForeignKeyResolverService fkSvc) =>
+        app.MapGet("/schools", async (SchoolService svc) =>
+            Results.Ok(await svc.GetAllAsync()));
+
+        app.MapGet("/schools/{id}", async (int id, SchoolService svc) =>
+            await svc.GetByIdAsync(id) is School s
+                ? Results.Ok(s)
+                : Results.NotFound());
+
+        app.MapPost("/schools", async (School school, SchoolService svc) =>
         {
-            var filters = request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
-            var records = await svc.GetAllAsync(filters);
-            var lookups = await fkSvc.BuildLookupsAsync("School", records);
-            return Results.Ok(new { records, lookups });
+            var created = await svc.CreateAsync(school);
+            return Results.Created($"/schools/{created.SchoolId}", created);
         });
 
-        app.MapPost("/schools", async (SchoolService.CreateSchoolRequest request, SchoolService svc) =>
-        {
-            try
-            {
-                var created = await svc.CreateAsync(request);
-                return Results.Ok(created);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.BadRequest(ex.Message);
-            }
-        }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+        app.MapPut("/schools/{id}", async (int id, School school, SchoolService svc) =>
+            await svc.UpdateAsync(id, school)
+                ? Results.NoContent()
+                : Results.NotFound());
+
+        app.MapPatch("/schools/{id}/deactivate", async (int id, SchoolService svc) =>
+            await svc.DeactivateAsync(id)
+                ? Results.NoContent()
+                : Results.NotFound());
+
+        app.MapPatch(pattern: "/schools/{id}/activate", async (int id, SchoolService svc) =>
+            await svc.ActivateAsync(id)
+                ? Results.NoContent()
+                : Results.NotFound());
 
         app.MapPost("/schools/import", async (IFormFile file, SchoolService svc) =>
         {

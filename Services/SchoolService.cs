@@ -6,51 +6,54 @@ namespace Litaro.Services;
 
 public class SchoolService(AppDbContext db)
 {
-
-    public record CreateSchoolRequest(string Name, string Nit, string Address, string? Phone);
-
-    public Task<List<School>> GetAllAsync(IDictionary<string, string>? filters = null)
+    public Task<List<School>> GetAllAsync()
     {
-        var query = db.Schools.Where(s => s.Active).AsQueryable();
-
-        if (filters is not null && filters.Count > 0)
-            query = query.ApplyFilters(filters);
-
-        return query.ToListAsync();
+        return db.Schools.Where(s => s.Active).ToListAsync();
     }
-    public async Task<School> CreateAsync(CreateSchoolRequest request)
+
+    public async Task<School?> GetByIdAsync(int id)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) ||
-            string.IsNullOrWhiteSpace(request.Nit) ||
-            string.IsNullOrWhiteSpace(request.Address))
-            throw new InvalidOperationException("Nombre, NIT y dirección son obligatorios.");
+        return await db.Schools.FindAsync(id);
+    }
 
-        var nitExists = await db.Schools.AnyAsync(s => s.Nit == request.Nit);
-        if (nitExists)
-            throw new InvalidOperationException($"El NIT '{request.Nit}' ya existe.");
-
-        var school = new School
-        {
-            Name = request.Name.Trim(),
-            Nit = request.Nit.Trim(),
-            Address = request.Address.Trim(),
-            Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
-            Active = true,
-            CreationDate = DateTime.UtcNow,
-        };
-
+    public async Task<School> CreateAsync(School school)
+    {
         db.Schools.Add(school);
-
-        try
-        {
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex)
-        {
-            throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
-        }
-
+        await db.SaveChangesAsync();
         return school;
+    }
+
+    public async Task<bool> UpdateAsync(int id, School updated)
+    {
+        var school = await db.Schools.FindAsync(id);
+        if (school is null) return false;
+
+        school.Name    = updated.Name;
+        school.Address = updated.Address;
+        school.Phone   = updated.Phone;
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeactivateAsync(int id)
+    {
+        var school = await db.Schools.FindAsync(id);
+        if (school is null) return false;
+
+        school.Active = false;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ActivateAsync(int id)
+    {
+        var school = await db.Schools.FindAsync(id);
+        if (school is null) return false;
+
+        school.Active = true;
+        await db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)
@@ -81,7 +84,7 @@ public class SchoolService(AppDbContext db)
             var address = cols[2].Trim();
             var phone = cols[3].Trim();
 
-            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(nit) || string.IsNullOrEmpty(address))
+            if(string.IsNullOrEmpty(name) || string.IsNullOrEmpty(nit) || string.IsNullOrEmpty(address))
             {
                 errors.Add($"Linea {lineNumber}: Nombre, NIT o direccion son obligatorios");
                 continue;
@@ -109,7 +112,7 @@ public class SchoolService(AppDbContext db)
                 await db.SaveChangesAsync();
                 imported++;
             }
-            catch (DbUpdateException ex)
+            catch(DbUpdateException ex)
             {
                 db.ChangeTracker.Clear();
                 errors.Add($"Linea {lineNumber}: error al guardar - {ex.InnerException?.Message ?? ex.Message}");

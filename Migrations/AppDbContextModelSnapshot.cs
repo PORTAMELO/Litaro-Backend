@@ -17,7 +17,6 @@ namespace Litaro.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("public")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -59,7 +58,7 @@ namespace Litaro.Migrations
                     b.HasIndex("ClassroomId", "SubjectId", "YearId")
                         .IsUnique();
 
-                    b.ToTable("AcademicAssignment", "public");
+                    b.ToTable("AcademicAssignment", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.AcademicPeriod", b =>
@@ -89,7 +88,7 @@ namespace Litaro.Migrations
                     b.HasIndex("PeriodNumber", "YearId")
                         .IsUnique();
 
-                    b.ToTable("AcademicPeriod", "public");
+                    b.ToTable("AcademicPeriod", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.AcademicYear", b =>
@@ -97,20 +96,22 @@ namespace Litaro.Migrations
                     b.Property<short>("YearId")
                         .HasColumnType("smallint");
 
-                    b.Property<bool>("Active")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("ACTIVE");
+
                     b.HasKey("YearId");
 
-                    b.ToTable("AcademicYear", "public");
+                    b.ToTable("AcademicYear", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Attendance", b =>
@@ -148,7 +149,7 @@ namespace Litaro.Migrations
                     b.HasIndex("EnrollmentId", "SubjectId", "Date")
                         .IsUnique();
 
-                    b.ToTable("Attendance", "public");
+                    b.ToTable("Attendance", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Campus", b =>
@@ -169,10 +170,6 @@ namespace Litaro.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<string>("Dane")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -189,66 +186,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Campus", "public");
-                });
-
-            modelBuilder.Entity("Litaro.Models.Characteristic", b =>
-                {
-                    b.Property<int>("CharacteristicId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CharacteristicId"));
-
-                    b.Property<DateTime>("CreationDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("CharacteristicId");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Characteristic", "public");
-                });
-
-            modelBuilder.Entity("Litaro.Models.CharacteristicDetail", b =>
-                {
-                    b.Property<int>("CharacteristicDetailId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CharacteristicDetailId"));
-
-                    b.Property<int>("CharacteristicId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreationDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("Valor")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.HasKey("CharacteristicDetailId");
-
-                    b.HasIndex("CharacteristicId");
-
-                    b.ToTable("CharacteristicDetail", "public");
+                    b.ToTable("Campus", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Classroom", b =>
@@ -281,45 +219,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("GradeId");
 
-                    b.ToTable("Classroom", "public");
-                });
-
-            modelBuilder.Entity("Litaro.Models.ColumnConfiguration", b =>
-                {
-                    b.Property<int>("ColumnConfigurationId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ColumnConfigurationId"));
-
-                    b.Property<string>("Alias")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("CharacteristicId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ColumnName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("Filterable")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("TableName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("Visible")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("ColumnConfigurationId");
-
-                    b.HasIndex("CharacteristicId");
-
-                    b.ToTable("ColumnConfigurations", "public");
+                    b.ToTable("Classroom", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Enrollment", b =>
@@ -362,7 +262,7 @@ namespace Litaro.Migrations
                     b.HasIndex("StudentId", "YearId")
                         .IsUnique();
 
-                    b.ToTable("Enrollment", "public");
+                    b.ToTable("Enrollment", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Grade", b =>
@@ -391,7 +291,7 @@ namespace Litaro.Migrations
                     b.HasIndex("OrderNum")
                         .IsUnique();
 
-                    b.ToTable("Grade", "public");
+                    b.ToTable("Grade", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.GradeScore", b =>
@@ -432,7 +332,7 @@ namespace Litaro.Migrations
                     b.HasIndex("EnrollmentId", "SubjectId", "PeriodId")
                         .IsUnique();
 
-                    b.ToTable("GradeScore", "public");
+                    b.ToTable("GradeScore", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Parent", b =>
@@ -447,7 +347,7 @@ namespace Litaro.Migrations
 
                     b.HasKey("ParentId");
 
-                    b.ToTable("Parent", "public");
+                    b.ToTable("Parent", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.ParentStudent", b =>
@@ -476,7 +376,7 @@ namespace Litaro.Migrations
                     b.HasIndex("ParentId", "StudentId")
                         .IsUnique();
 
-                    b.ToTable("ParentStudent", "public");
+                    b.ToTable("ParentStudent", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Schedule", b =>
@@ -504,7 +404,7 @@ namespace Litaro.Migrations
                     b.HasIndex("AssignmentId", "Weekday", "StartTime")
                         .IsUnique();
 
-                    b.ToTable("Schedule", "public");
+                    b.ToTable("Schedule", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.School", b =>
@@ -549,7 +449,7 @@ namespace Litaro.Migrations
                     b.HasIndex("Nit")
                         .IsUnique();
 
-                    b.ToTable("School", "public");
+                    b.ToTable("School", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Student", b =>
@@ -574,7 +474,7 @@ namespace Litaro.Migrations
                     b.HasIndex("StudentCode")
                         .IsUnique();
 
-                    b.ToTable("Student", "public");
+                    b.ToTable("Student", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.StudentLog", b =>
@@ -612,7 +512,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("UserRecordedId");
 
-                    b.ToTable("StudentLog", "public");
+                    b.ToTable("StudentLog", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Subject", b =>
@@ -639,7 +539,7 @@ namespace Litaro.Migrations
 
                     b.HasKey("SubjectId");
 
-                    b.ToTable("Subject", "public");
+                    b.ToTable("Subject", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.Teacher", b =>
@@ -654,7 +554,7 @@ namespace Litaro.Migrations
 
                     b.HasKey("TeacherId");
 
-                    b.ToTable("Teacher", "public");
+                    b.ToTable("Teacher", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.User", b =>
@@ -718,9 +618,6 @@ namespace Litaro.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("MustChangePassword")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -764,7 +661,7 @@ namespace Litaro.Migrations
                     b.HasIndex("DocumentType", "DocumentNumber")
                         .IsUnique();
 
-                    b.ToTable("User", "public");
+                    b.ToTable("User", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.WebContent", b =>
@@ -815,7 +712,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("PageName", "SectionName", "DisplayOrder");
 
-                    b.ToTable("WebContent", "public");
+                    b.ToTable("WebContent", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.WebContentConfiguration", b =>
@@ -865,7 +762,7 @@ namespace Litaro.Migrations
                     b.HasIndex("PageName", "SectionName", "ContentKey")
                         .IsUnique();
 
-                    b.ToTable("WebContentConfiguration", "public");
+                    b.ToTable("WebContentConfiguration", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
@@ -894,7 +791,7 @@ namespace Litaro.Migrations
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles", "public");
+                    b.ToTable("AspNetRoles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
@@ -918,7 +815,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", "public");
+                    b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
@@ -942,7 +839,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", "public");
+                    b.ToTable("AspNetUserClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
@@ -963,7 +860,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", "public");
+                    b.ToTable("AspNetUserLogins", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
@@ -978,7 +875,7 @@ namespace Litaro.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", "public");
+                    b.ToTable("AspNetUserRoles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
@@ -997,7 +894,7 @@ namespace Litaro.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", "public");
+                    b.ToTable("AspNetUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("Litaro.Models.AcademicAssignment", b =>
@@ -1076,17 +973,6 @@ namespace Litaro.Migrations
                     b.Navigation("School");
                 });
 
-            modelBuilder.Entity("Litaro.Models.CharacteristicDetail", b =>
-                {
-                    b.HasOne("Litaro.Models.Characteristic", "Characteristic")
-                        .WithMany()
-                        .HasForeignKey("CharacteristicId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Characteristic");
-                });
-
             modelBuilder.Entity("Litaro.Models.Classroom", b =>
                 {
                     b.HasOne("Litaro.Models.Campus", "Campus")
@@ -1104,16 +990,6 @@ namespace Litaro.Migrations
                     b.Navigation("Campus");
 
                     b.Navigation("Grade");
-                });
-
-            modelBuilder.Entity("Litaro.Models.ColumnConfiguration", b =>
-                {
-                    b.HasOne("Litaro.Models.Characteristic", "Characteristic")
-                        .WithMany()
-                        .HasForeignKey("CharacteristicId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Characteristic");
                 });
 
             modelBuilder.Entity("Litaro.Models.Enrollment", b =>

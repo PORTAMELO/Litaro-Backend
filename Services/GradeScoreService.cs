@@ -1,4 +1,4 @@
-using Litaro.Data;
+﻿using Litaro.Data;
 using Litaro.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,17 +6,39 @@ namespace Litaro.Services
 {
     public class GradeScoreService(AppDbContext db)
     {
-        public Task<List<GradeScore>> GetAllAsync(IDictionary<string, string>? filters = null)
+        public Task<List<GradeScore>> GetAllAsync() =>
+            db.GradeScores.ToListAsync();
+
+        public async Task<GradeScore?> GetByIdAsync(int id) =>
+            await db.GradeScores.FindAsync(id);
+
+        public async Task<GradeScore> CreateAsync(GradeScore gradeScore)
         {
-            var query = db.GradeScores.AsQueryable();
-
-            if (filters is not null && filters.Count > 0)
-                query = query.ApplyFilters(filters);
-
-            return query.ToListAsync();
+            db.GradeScores.Add(gradeScore);
+            await db.SaveChangesAsync();
+            return gradeScore;
         }
 
-        public Task<GradeScore?> GetByIdAsync(int id) =>
-            db.GradeScores.FirstOrDefaultAsync(gs => gs.GradeScoreId == id);
+        public async Task<bool> UpdateAsync(int id, GradeScore updated)
+        {
+            var gradeScore = await db.GradeScores.FindAsync(id);
+            if (gradeScore is null) return false;
+
+            gradeScore.Value = updated.Value;
+            gradeScore.Description = updated.Description;
+
+            await db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var gradeScore = await db.GradeScores.FindAsync(id);
+            if (gradeScore is null) return false;
+
+            db.GradeScores.Remove(gradeScore);
+            await db.SaveChangesAsync();
+            return true;
+        }
     }
 }

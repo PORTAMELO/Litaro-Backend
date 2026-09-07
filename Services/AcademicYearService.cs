@@ -7,51 +7,50 @@ namespace Litaro.Services
 {
     public class AcademicYearService(AppDbContext db)
     {
+        public Task<List<AcademicYear>> GetAllAsync() =>
+            db.AcademicYears.ToListAsync();
 
-        public record CreateAcademicYearRequest(short YearId, DateTime StartDate, DateTime EndDate);
+        public async Task<AcademicYear?> GetByIdAsync(short id) =>
+            await db.AcademicYears.FindAsync(id);
 
-        public Task<List<AcademicYear>> GetAllAsync(IDictionary<string, string>? filters = null)
+        public async Task<AcademicYear> CreateAsync(AcademicYear year)
         {
-            var query = db.AcademicYears.AsQueryable();
-
-            if (filters is not null && filters.Count > 0)
-                query = query.ApplyFilters(filters);
-
-            return query.ToListAsync();
+            db.AcademicYears.Add(year);
+            await db.SaveChangesAsync();
+            return year;
         }
 
-        public async Task<AcademicYear> CreateAsync(CreateAcademicYearRequest request)
+        public async Task<bool> UpdateAsync(short id, AcademicYear updated)
         {
-            if (request.YearId <= 0)
-                throw new InvalidOperationException("El año es obligatorio y debe ser válido.");
+            var year = await db.AcademicYears.FindAsync(id);
+            if (year is null) return false;
 
-            if (request.EndDate <= request.StartDate)
-                throw new InvalidOperationException("La fecha de fin debe ser posterior a la fecha de inicio.");
+            year.StartDate = updated.StartDate;
+            year.EndDate = updated.EndDate;
+            year.Status = updated.Status;
 
-            var yearExists = await db.AcademicYears.AnyAsync(y => y.YearId == request.YearId);
-            if (yearExists)
-                throw new InvalidOperationException($"El año académico {request.YearId} ya existe.");
+            await db.SaveChangesAsync();
+            return true;
+        }
 
-            var academicYear = new AcademicYear
-            {
-                YearId = request.YearId,
-                StartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc),
-                EndDate = DateTime.SpecifyKind(request.EndDate, DateTimeKind.Utc),
-                Active = true
-            };
+        public async Task<bool> DeactivateAsync(short id)
+        {
+            var year = await db.AcademicYears.FindAsync(id);
+            if (year is null) return false;
 
-            db.AcademicYears.Add(academicYear);
+            year.Status = "CLOSED";
+            await db.SaveChangesAsync();
+            return true;
+        }
 
-            try
-            {
-                await db.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
-            }
+        public async Task<bool> ActivateAsync(short id)
+        {
+            var year = await db.AcademicYears.FindAsync(id);
+            if (year is null) return false;
 
-            return academicYear;
+            year.Status = "ACTIVE";
+            await db.SaveChangesAsync();
+            return true;
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)
@@ -130,7 +129,8 @@ namespace Litaro.Services
                 {
                     YearId = yearId,
                     StartDate = startDate,
-                    EndDate = endDate
+                    EndDate = endDate,
+                    Status = status,
                 };
 
                 db.AcademicYears.Add(academicYear);
