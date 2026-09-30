@@ -37,24 +37,29 @@ namespace Litaro.Services
             if (string.IsNullOrWhiteSpace(request.Specialty))
                 throw new InvalidOperationException("La especialidad es obligatoria.");
 
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new InvalidOperationException("La contraseña es obligatoria.");
-
             var existingUser = await db.Users.FirstOrDefaultAsync(u =>
                 u.DocumentType == request.DocumentType && u.DocumentNumber == request.DocumentNumber);
 
             User user;
+            Teacher? teacher = null;
 
             if (existingUser is not null)
             {
-                var alreadyTeacher = await db.Teachers.AnyAsync(t => t.TeacherId == existingUser.Id);
-                if (alreadyTeacher)
-                    throw new InvalidOperationException("Este usuario ya está registrado como docente.");
-
+                // El documento ya pertenece a un usuario (con otro perfil, o con este mismo
+                // perfil inactivo). No se crea un User nuevo: se reutiliza el mismo Id en
+                // ambas tablas, que es como Student/Parent/Teacher ya quedan "anclados" al
+                // mismo perfil de identidad.
                 user = existingUser;
+                teacher = await db.Teachers.FirstOrDefaultAsync(t => t.TeacherId == user.Id);
+
+                if (teacher is not null && teacher.Active)
+                    throw new InvalidOperationException("Este usuario ya está registrado como docente.");
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(request.Password))
+                    throw new InvalidOperationException("La contraseña es obligatoria.");
+
                 var campusExists = await db.Campuses.AnyAsync(c => c.CampusId == request.CampusId);
                 if (!campusExists)
                     throw new InvalidOperationException($"La sede con id {request.CampusId} no existe.");
@@ -77,6 +82,8 @@ namespace Litaro.Services
                     throw new InvalidOperationException(string.Join(", ", createResult.Errors.Select(e => e.Description)));
             }
 
+            var isReactivation = teacher is not null && !teacher.Active;
+
             var alreadyInRole = await userManager.IsInRoleAsync(user, RoleName);
             if (!alreadyInRole)
             {
@@ -85,13 +92,23 @@ namespace Litaro.Services
                     throw new InvalidOperationException(string.Join(", ", roleResult.Errors.Select(e => e.Description)));
             }
 
-            var teacher = new Teacher
+            if (isReactivation)
             {
-                TeacherId = user.Id,
-                Specialty = request.Specialty.Trim(),
-            };
+                // El perfil ya existía pero estaba inactivo: se reactiva y se actualizan
+                // sus datos propios, sin tocar ni borrar nada del usuario ni de otros perfiles.
+                teacher!.Specialty = request.Specialty.Trim();
+                teacher.Active = true;
+            }
+            else
+            {
+                teacher = new Teacher
+                {
+                    TeacherId = user.Id,
+                    Specialty = request.Specialty.Trim(),
+                };
 
-            db.Teachers.Add(teacher);
+                db.Teachers.Add(teacher);
+            }
 
             try
             {
@@ -103,6 +120,35 @@ namespace Litaro.Services
             }
 
             return new CreateTeacherResult(teacher, null);
+        }
+
+        // Inactivar no borra el registro: solo marca Active = false y retira el rol
+        // "Profesor" de Identity. Reactivar hace lo inverso. Los demás perfiles del
+        // mismo usuario (Student/Parent) no se ven afectados.
+        public async Task<Teacher> SetActiveAsync(int id, bool active)
+        {
+            var teacher = await db.Teachers.FirstOrDefaultAsync(t => t.TeacherId == id);
+            if (teacher is null)
+                throw new InvalidOperationException($"No existe un docente con id {id}.");
+
+            var user = await userManager.FindByIdAsync(id.ToString())
+                ?? throw new InvalidOperationException($"No existe el usuario asociado al docente {id}.");
+
+            teacher.Active = active;
+
+            if (active)
+            {
+                if (!await userManager.IsInRoleAsync(user, RoleName))
+                    await userManager.AddToRoleAsync(user, RoleName);
+            }
+            else
+            {
+                if (await userManager.IsInRoleAsync(user, RoleName))
+                    await userManager.RemoveFromRoleAsync(user, RoleName);
+            }
+
+            await db.SaveChangesAsync();
+            return teacher;
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)

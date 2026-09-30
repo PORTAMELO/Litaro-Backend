@@ -41,28 +41,25 @@ namespace Litaro.Services
             if (request.BirthDate.Date > DateTime.Today)
                 throw new InvalidOperationException("La fecha de nacimiento no puede ser futura.");
 
-            var codeExists = await db.Students.AnyAsync(s => s.StudentCode == request.StudentCode);
-            if (codeExists)
-                throw new InvalidOperationException($"El código de estudiante '{request.StudentCode}' ya existe.");
-
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new InvalidOperationException("La contraseña es obligatoria.");
-
             var existingUser = await db.Users.FirstOrDefaultAsync(u =>
                 u.DocumentType == request.DocumentType && u.DocumentNumber == request.DocumentNumber);
 
             User user;
+            Student? student = null;
 
             if (existingUser is not null)
             {
-                var alreadyStudent = await db.Students.AnyAsync(s => s.StudentId == existingUser.Id);
-                if (alreadyStudent)
-                    throw new InvalidOperationException("Este usuario ya está registrado como estudiante.");
-
                 user = existingUser;
+                student = await db.Students.FirstOrDefaultAsync(s => s.StudentId == user.Id);
+
+                if (student is not null && student.Active)
+                    throw new InvalidOperationException("Este usuario ya está registrado como estudiante.");
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(request.Password))
+                    throw new InvalidOperationException("La contraseña es obligatoria.");
+
                 var campusExists = await db.Campuses.AnyAsync(c => c.CampusId == request.CampusId);
                 if (!campusExists)
                     throw new InvalidOperationException($"La sede con id {request.CampusId} no existe.");
@@ -85,6 +82,12 @@ namespace Litaro.Services
                     throw new InvalidOperationException(string.Join(", ", createResult.Errors.Select(e => e.Description)));
             }
 
+            var isReactivation = student is not null && !student.Active;
+
+            var codeExists = await db.Students.AnyAsync(s => s.StudentCode == request.StudentCode && s.StudentId != user.Id);
+            if (codeExists)
+                throw new InvalidOperationException($"El código de estudiante '{request.StudentCode}' ya existe.");
+
             var alreadyInRole = await userManager.IsInRoleAsync(user, RoleName);
             if (!alreadyInRole)
             {
@@ -93,15 +96,25 @@ namespace Litaro.Services
                     throw new InvalidOperationException(string.Join(", ", roleResult.Errors.Select(e => e.Description)));
             }
 
-            var student = new Student
+            if (isReactivation)
             {
-                StudentId = user.Id,
-                StudentCode = request.StudentCode,
-                BirthDate = DateTime.SpecifyKind(request.BirthDate, DateTimeKind.Utc),
-                Gender = request.Gender,
-            };
+                student!.StudentCode = request.StudentCode;
+                student.BirthDate = DateTime.SpecifyKind(request.BirthDate, DateTimeKind.Utc);
+                student.Gender = request.Gender;
+                student.Active = true;
+            }
+            else
+            {
+                student = new Student
+                {
+                    StudentId = user.Id,
+                    StudentCode = request.StudentCode,
+                    BirthDate = DateTime.SpecifyKind(request.BirthDate, DateTimeKind.Utc),
+                    Gender = request.Gender,
+                };
 
-            db.Students.Add(student);
+                db.Students.Add(student);
+            }
 
             try
             {
@@ -113,6 +126,32 @@ namespace Litaro.Services
             }
 
             return new CreateStudentResult(student, null);
+        }
+
+        public async Task<Student> SetActiveAsync(int id, bool active)
+        {
+            var student = await db.Students.FirstOrDefaultAsync(s => s.StudentId == id);
+            if (student is null)
+                throw new InvalidOperationException($"No existe un estudiante con id {id}.");
+
+            var user = await userManager.FindByIdAsync(id.ToString())
+                ?? throw new InvalidOperationException($"No existe el usuario asociado al estudiante {id}.");
+
+            student.Active = active;
+
+            if (active)
+            {
+                if (!await userManager.IsInRoleAsync(user, RoleName))
+                    await userManager.AddToRoleAsync(user, RoleName);
+            }
+            else
+            {
+                if (await userManager.IsInRoleAsync(user, RoleName))
+                    await userManager.RemoveFromRoleAsync(user, RoleName);
+            }
+
+            await db.SaveChangesAsync();
+            return student;
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)

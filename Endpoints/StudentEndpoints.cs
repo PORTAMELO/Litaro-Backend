@@ -44,6 +44,22 @@ namespace Litaro.Endpoints
                 }
             }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
+            app.MapPut("/students/{id:int}/estado", async (int id, SetActiveRequest request, StudentService svc) =>
+            {
+                if (id <= 0)
+                    return Results.BadRequest("El id debe ser un entero positivo.");
+
+                try
+                {
+                    var student = await svc.SetActiveAsync(id, request.Active);
+                    return Results.Ok(student);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+
             app.MapPost("/students/import", async (IFormFile file, StudentService svc) =>
             {
                 if (file is null || file.Length == 0)

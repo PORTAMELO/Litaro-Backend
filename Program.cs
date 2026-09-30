@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Litaro.Data;
 using Litaro.Endpoints;
+using Litaro.Middleware;
 using Litaro.Models;
 using Litaro.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -114,6 +115,7 @@ builder.Services.AddScoped<ColumnConfigurationService>();
 builder.Services.AddScoped<ForeignKeyResolverService>();
 builder.Services.AddScoped<CharacteristicService>();
 builder.Services.AddScoped<LookupService>();
+builder.Services.AddScoped<PermissionService>();
 
 var app = builder.Build();
 
@@ -121,11 +123,13 @@ var app = builder.Build();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TablePermissionMiddleware>();
 
 // Endpoints de auth
 app.MapPost("/auth/login", async (LoginRequest req,
     SignInManager<User> signInManager,
-    UserManager<User> userManager) =>
+    UserManager<User> userManager,
+    UserService userService) =>
 {
     var user = await userManager.FindByEmailAsync(req.Email);
     if (user is null)
@@ -172,7 +176,16 @@ app.MapPost("/auth/login", async (LoginRequest req,
             IsPersistent = false
         });
 
-    return Results.Ok(new { user.FirstName, user.LastName, user.Email, Role = roles.FirstOrDefault() });
+    var profiles = await userService.GetProfileSummaryAsync(user.Id);
+
+    return Results.Ok(new
+    {
+        user.FirstName,
+        user.LastName,
+        user.Email,
+        Roles = roles,
+        Profiles = profiles
+    });
 })
 .AllowAnonymous();
 
@@ -182,18 +195,28 @@ app.MapPost("/auth/logout", async (HttpContext ctx) =>
     return Results.Ok();
 });
 
-app.MapGet("/auth/session", (HttpContext ctx) =>
+app.MapGet("/auth/session", async (HttpContext ctx, UserService userService) =>
 {
-    var user = ctx.User;
+    var principal = ctx.User;
 
-    if (user.Identity?.IsAuthenticated != true)
+    if (principal.Identity?.IsAuthenticated != true)
         return Results.Unauthorized();
+
+    var idClaim = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idClaim, out var userId))
+        return Results.Unauthorized();
+
+    var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+    var profiles = await userService.GetProfileSummaryAsync(userId);
 
     return Results.Ok(new
     {
-        Id = user.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier),
-        Email = user.FindFirstValue(System.Security.Claims.ClaimTypes.Email),
-        Role = user.FindFirstValue(System.Security.Claims.ClaimTypes.Role)
+        Id = idClaim,
+        FirstName = principal.FindFirstValue(ClaimTypes.GivenName),
+        LastName = principal.FindFirstValue(ClaimTypes.Surname),
+        Email = principal.FindFirstValue(ClaimTypes.Email),
+        Roles = roles,
+        Profiles = profiles
     });
 });
 
@@ -222,6 +245,10 @@ app.MapSchemaEndpoints();
 app.MapColumnConfigurationEndpoints();
 app.MapCharacteristicEndpoints();
 app.MapLookupEndpoints();
+app.MapPermissionEndpoints();
+app.MapRoleEndpoints();
+app.MapRolePermissionEndpoints();
+app.MapUserRoleEndpoints();
 
 app.Run();
 

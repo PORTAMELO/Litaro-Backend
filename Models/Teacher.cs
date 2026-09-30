@@ -4,6 +4,7 @@
     {
         public int TeacherId { get; set; }
         public string Specialty { get; set; } = string.Empty;
+        public bool Active { get; set; } = true;
         public User User { get; set; } = null!;
     }
 }

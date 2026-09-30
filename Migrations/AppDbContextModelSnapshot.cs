@@ -479,6 +479,40 @@ namespace Litaro.Migrations
                     b.ToTable("ParentStudent", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.RolePermission", b =>
+                {
+                    b.Property<int>("RolePermissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RolePermissionId"));
+
+                    b.Property<int>("Permissions")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("View")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("RolePermissionId");
+
+                    b.HasIndex("RoleId", "TableName")
+                        .IsUnique();
+
+                    b.ToTable("RolePermission", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_RolePermission_Permissions", "\"Permissions\" BETWEEN 0 AND 15");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.Schedule", b =>
                 {
                     b.Property<int>("ScheduleId")
@@ -1198,6 +1232,17 @@ namespace Litaro.Migrations
                     b.Navigation("Parent");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Litaro.Models.RolePermission", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("Litaro.Models.Schedule", b =>

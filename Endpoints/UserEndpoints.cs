@@ -15,6 +15,15 @@ namespace Litaro.Endpoints
                 return Results.Ok(new { records, lookups });
             });
 
+            app.MapGet("/users/lookup", async (string documentType, string documentNumber, UserService svc) =>
+            {
+                if (string.IsNullOrWhiteSpace(documentType) || string.IsNullOrWhiteSpace(documentNumber))
+                    return Results.BadRequest("Debe indicar tipo y número de documento.");
+
+                var result = await svc.LookupByDocumentAsync(documentType, documentNumber);
+                return Results.Ok(result);
+            }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+
             app.MapGet("/users/{id:int}", async (int id, UserService svc) =>
             {
                 if (id <= 0)

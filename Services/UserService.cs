@@ -40,5 +40,69 @@ namespace Litaro.Services
 
         public Task<User?> GetByIdAsync(int id) =>
             db.Users.FirstOrDefaultAsync(u => u.Id == id && u.Active);
+
+        public record ProfileStatus(bool Exists, bool Active, int? Id);
+
+        public record ProfileSummary(ProfileStatus Student, ProfileStatus Parent, ProfileStatus Teacher);
+
+        public record UserLookupResult(
+            bool Found,
+            int? Id,
+            string? FirstName,
+            string? LastName,
+            string? Email,
+            string? PhoneNumber,
+            int? CampusId,
+            bool AccountActive,
+            ProfileStatus Student,
+            ProfileStatus Parent,
+            ProfileStatus Teacher
+        );
+
+        private static readonly ProfileStatus NoProfile = new(false, false, null);
+
+        private async Task<(ProfileStatus Student, ProfileStatus Parent, ProfileStatus Teacher)> GetProfilesByUserIdAsync(int userId)
+        {
+            var student = await db.Students.FirstOrDefaultAsync(s => s.StudentId == userId);
+            var parent = await db.Parents.FirstOrDefaultAsync(p => p.ParentId == userId);
+            var teacher = await db.Teachers.FirstOrDefaultAsync(t => t.TeacherId == userId);
+
+            return (
+                student is null ? NoProfile : new ProfileStatus(true, student.Active, student.StudentId),
+                parent is null ? NoProfile : new ProfileStatus(true, parent.Active, parent.ParentId),
+                teacher is null ? NoProfile : new ProfileStatus(true, teacher.Active, teacher.TeacherId)
+            );
+        }
+
+        public async Task<UserLookupResult> LookupByDocumentAsync(string documentType, string documentNumber)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u =>
+                u.DocumentType == documentType && u.DocumentNumber == documentNumber);
+
+            if (user is null)
+                return new UserLookupResult(false, null, null, null, null, null, null, true, NoProfile, NoProfile, NoProfile);
+
+            var (student, parent, teacher) = await GetProfilesByUserIdAsync(user.Id);
+
+            return new UserLookupResult(
+                true,
+                user.Id,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.PhoneNumber,
+                user.CampusId,
+                user.Active,
+                student,
+                parent,
+                teacher
+            );
+        }
+
+        public async Task<ProfileSummary> GetProfileSummaryAsync(int userId)
+        {
+            var (student, parent, teacher) = await GetProfilesByUserIdAsync(userId);
+            return new ProfileSummary(student, parent, teacher);
+        }
     }
 }
