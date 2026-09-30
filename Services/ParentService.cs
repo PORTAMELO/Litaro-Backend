@@ -64,24 +64,25 @@ namespace Litaro.Services
                     throw new InvalidOperationException($"No existen estudiantes con id: {string.Join(", ", missing)}.");
             }
 
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new InvalidOperationException("La contraseña es obligatoria.");
-
             var existingUser = await db.Users.FirstOrDefaultAsync(u =>
                 u.DocumentType == request.DocumentType && u.DocumentNumber == request.DocumentNumber);
 
             User user;
+            Parent? parent = null;
 
             if (existingUser is not null)
             {
-                var alreadyParent = await db.Parents.AnyAsync(p => p.ParentId == existingUser.Id);
-                if (alreadyParent)
-                    throw new InvalidOperationException("Este usuario ya está registrado como acudiente.");
-
                 user = existingUser;
+                parent = await db.Parents.FirstOrDefaultAsync(p => p.ParentId == user.Id);
+
+                if (parent is not null && parent.Active)
+                    throw new InvalidOperationException("Este usuario ya está registrado como acudiente.");
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(request.Password))
+                    throw new InvalidOperationException("La contraseña es obligatoria.");
+
                 var campusExists = await db.Campuses.AnyAsync(c => c.CampusId == request.CampusId);
                 if (!campusExists)
                     throw new InvalidOperationException($"La sede con id {request.CampusId} no existe.");
@@ -104,6 +105,8 @@ namespace Litaro.Services
                     throw new InvalidOperationException(string.Join(", ", createResult.Errors.Select(e => e.Description)));
             }
 
+            var isReactivation = parent is not null && !parent.Active;
+
             var alreadyInRole = await userManager.IsInRoleAsync(user, RoleName);
             if (!alreadyInRole)
             {
@@ -112,17 +115,28 @@ namespace Litaro.Services
                     throw new InvalidOperationException(string.Join(", ", roleResult.Errors.Select(e => e.Description)));
             }
 
-            var parent = new Parent
+            if (isReactivation)
             {
-                ParentId = user.Id,
-                Relationship = request.Relationship,
-            };
+                parent!.Relationship = request.Relationship;
+                parent.Active = true;
+            }
+            else
+            {
+                parent = new Parent
+                {
+                    ParentId = user.Id,
+                    Relationship = request.Relationship,
+                };
 
-            db.Parents.Add(parent);
+                db.Parents.Add(parent);
+            }
 
             var links = new List<ParentStudent>();
             foreach (var studentId in studentIds)
             {
+                var alreadyLinked = await db.ParentStudents.AnyAsync(ps => ps.ParentId == user.Id && ps.StudentId == studentId);
+                if (alreadyLinked) continue;
+
                 var link = new ParentStudent
                 {
                     ParentId = user.Id,
@@ -144,6 +158,32 @@ namespace Litaro.Services
             }
 
             return new CreateParentResult(parent, links, null);
+        }
+
+        public async Task<Parent> SetActiveAsync(int id, bool active)
+        {
+            var parent = await db.Parents.FirstOrDefaultAsync(p => p.ParentId == id);
+            if (parent is null)
+                throw new InvalidOperationException($"No existe un acudiente con id {id}.");
+
+            var user = await userManager.FindByIdAsync(id.ToString())
+                ?? throw new InvalidOperationException($"No existe el usuario asociado al acudiente {id}.");
+
+            parent.Active = active;
+
+            if (active)
+            {
+                if (!await userManager.IsInRoleAsync(user, RoleName))
+                    await userManager.AddToRoleAsync(user, RoleName);
+            }
+            else
+            {
+                if (await userManager.IsInRoleAsync(user, RoleName))
+                    await userManager.RemoveFromRoleAsync(user, RoleName);
+            }
+
+            await db.SaveChangesAsync();
+            return parent;
         }
 
         public async Task<(int Imported, List<string> Errors)> ImportFromCsvAsync(Stream csvStream)

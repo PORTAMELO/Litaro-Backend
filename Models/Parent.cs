@@ -4,6 +4,7 @@
     {
         public int ParentId { get; set; }
         public string Relationship { get; set; } = string.Empty;
+        public bool Active { get; set; } = true;
         public User User { get; set; } = null!;
     }
 }

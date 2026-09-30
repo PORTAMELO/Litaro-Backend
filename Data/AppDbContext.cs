@@ -55,6 +55,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<CharacteristicDetail> CharacteristicDetails => Set<CharacteristicDetail>();
 
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -139,6 +141,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasIndex(e => e.StudentCode).IsUnique();
             entity.Property(e => e.BirthDate).IsRequired();
             entity.Property(e => e.Gender).HasMaxLength(1).IsRequired();
+            entity.Property(e => e.Active).HasDefaultValue(true);
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.StudentId)
@@ -151,6 +154,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasKey(e => e.TeacherId);
             entity.Property(e => e.TeacherId).ValueGeneratedNever();
             entity.Property(e => e.Specialty).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Active).HasDefaultValue(true);
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.TeacherId)
@@ -163,6 +167,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasKey(e => e.ParentId);
             entity.Property(e => e.ParentId).ValueGeneratedNever();
             entity.Property(e => e.Relationship).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.Active).HasDefaultValue(true);
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.ParentId)
@@ -426,6 +431,20 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 .WithMany()
                 .HasForeignKey(e => e.CharacteristicId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.ToTable("RolePermission", t =>
+                t.HasCheckConstraint("CK_RolePermission_Permissions", "\"Permissions\" BETWEEN 0 AND 15"));
+            entity.HasKey(e => e.RolePermissionId);
+            entity.Property(e => e.TableName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.View).HasMaxLength(200);
+            entity.HasIndex(e => new { e.RoleId, e.TableName }).IsUnique();
+            entity.HasOne(e => e.Role)
+                .WithMany()
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
 

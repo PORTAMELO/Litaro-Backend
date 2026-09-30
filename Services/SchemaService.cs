@@ -27,7 +27,7 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
         "Campus", "Classroom", "Enrollment", "Grade", "GradeScore", "Parent",
         "ParentStudent", "Schedule", "School", "Student", "StudentLog",
         "Subject", "Teacher", "User", "WebContent", "WebContentConfiguration",
-        "Characteristic", "CharacteristicDetail"
+        "Characteristic", "CharacteristicDetail", "Role"
     };
 
     private static readonly Dictionary<string, string> JoinedUserTables = new()
@@ -36,6 +36,19 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
         ["Parent"] = "User",
         ["Teacher"] = "User",
     };
+
+    private static readonly Dictionary<string, string> PhysicalTableNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Role"] = "AspNetRoles",
+    };
+
+    private static readonly Dictionary<string, HashSet<string>> HiddenColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Role"] = new(StringComparer.OrdinalIgnoreCase) { "NormalizedName", "ConcurrencyStamp" },
+    };
+
+    private static string ResolvePhysicalTableName(string tableName) =>
+        PhysicalTableNames.TryGetValue(tableName, out var physicalName) ? physicalName : tableName;
 
     public string? GetJoinedTable(string tableName) =>
         JoinedUserTables.TryGetValue(tableName, out var joinedTable) ? joinedTable : null;
@@ -106,7 +119,9 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
 
     private async Task<List<RawColumn>> GetRawColumnsAsync(string tableName)
     {
-        return await db.Database.SqlQuery<RawColumn>($@"
+        var physicalTableName = ResolvePhysicalTableName(tableName);
+
+        var columns = await db.Database.SqlQuery<RawColumn>($@"
         SELECT
             column_name AS ""ColumnName"",
             data_type AS ""DataType"",
@@ -116,9 +131,14 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
             (is_identity = 'YES') AS ""IsIdentity""
         FROM information_schema.columns
         WHERE table_schema = 'public'
-        AND table_name = {tableName}
+        AND table_name = {physicalTableName}
         ORDER BY ordinal_position;")
         .ToListAsync();
+
+        if (HiddenColumns.TryGetValue(tableName, out var hidden))
+            columns = columns.Where(c => !hidden.Contains(c.ColumnName)).ToList();
+
+        return columns;
     }
     private record RawColumn(string ColumnName, string DataType, int? MaxLength, string IsNullable, string? ColumnDefault, bool IsIdentity);
 }
