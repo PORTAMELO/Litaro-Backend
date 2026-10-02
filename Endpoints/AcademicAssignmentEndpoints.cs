@@ -24,6 +24,37 @@ namespace Litaro.Endpoints
                     ? Results.Ok(assignment)
                     : Results.NotFound($"No existe una asignación activa con id {id}.");
             });
+
+            app.MapPost("/academic-assignments", async (AcademicAssignmentService.CreateAssignmentRequest request, AcademicAssignmentService svc) =>
+            {
+                try
+                {
+                    return Results.Ok(await svc.CreateAsync(request));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            });
+
+            app.MapPatch("/academic-assignments/{id:int}/teacher", async (int id, AcademicAssignmentService.ChangeTeacherRequest request, AcademicAssignmentService svc) =>
+            {
+                try
+                {
+                    var assignment = await svc.ChangeTeacherAsync(id, request.TeacherId);
+                    return assignment is not null
+                        ? Results.Ok(assignment)
+                        : Results.NotFound($"No existe una asignación activa con id {id}.");
+                }
+                catch (ScheduleConflictException ex)
+                {
+                    return Results.Conflict(new { message = ex.Message });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            });
         }
 
     }

@@ -57,6 +57,12 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
+    public DbSet<Space> Spaces => Set<Space>();
+
+    public DbSet<StudyPlan> StudyPlans => Set<StudyPlan>();
+
+    public DbSet<TeacherAvailability> TeacherAvailabilities => Set<TeacherAvailability>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -202,7 +208,9 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
         modelBuilder.Entity<Classroom>(entity =>
         {
-            entity.ToTable("Classroom");
+            entity.ToTable("Classroom", t =>
+                t.HasCheckConstraint("CK_Classroom_ClassMinutes",
+                    "\"ClassMinutes\" IS NULL OR \"ClassMinutes\" BETWEEN 20 AND 180"));
             entity.HasKey(e => e.ClassroomId);
             entity.Property(e => e.Name).HasMaxLength(10).IsRequired();
             entity.Property(e => e.Active).HasDefaultValue(true);
@@ -213,6 +221,10 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasOne(e => e.Campus)
                 .WithMany()
                 .HasForeignKey(e => e.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.DirectorTeacher)
+                .WithMany()
+                .HasForeignKey(e => e.DirectorTeacherId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -232,6 +244,9 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasKey(e => e.AssignmentId);
             entity.Property(e => e.Active).HasDefaultValue(true);
             entity.HasIndex(e => new { e.ClassroomId, e.SubjectId, e.YearId }).IsUnique();
+            entity.HasIndex(e => new { e.AssignmentId, e.TeacherId, e.ClassroomId })
+                .IsUnique()
+                .HasDatabaseName("UX_AcademicAssignment_Assignment_Teacher_Classroom");
             entity.HasOne(e => e.Classroom)
                 .WithMany()
                 .HasForeignKey(e => e.ClassroomId)
@@ -252,15 +267,50 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
         modelBuilder.Entity<Schedule>(entity =>
         {
-            entity.ToTable("Schedule");
+            entity.ToTable("Schedule", t =>
+            {
+                t.HasCheckConstraint("CK_Schedule_Weekday", "\"Weekday\" BETWEEN 1 AND 6");
+                t.HasCheckConstraint("CK_Schedule_Time", "\"EndTime\" > \"StartTime\"");
+                t.HasCheckConstraint("CK_Schedule_Type",
+                    "\"Type\" IN ('CLASS','PARENT_ATTENTION','ACCOMPANIMENT','MEETING','OTHER')");
+                t.HasCheckConstraint("CK_Schedule_ClassFields",
+                    "(\"Type\" = 'CLASS' AND \"AssignmentId\" IS NOT NULL AND \"ClassroomId\" IS NOT NULL) OR " +
+                    "(\"Type\" <> 'CLASS' AND \"AssignmentId\" IS NULL AND \"ClassroomId\" IS NULL)");
+            });
             entity.HasKey(e => e.ScheduleId);
+            entity.Property(e => e.Type).HasMaxLength(20).IsRequired().HasDefaultValue(ScheduleTypes.Class);
+            entity.Property(e => e.Title).HasMaxLength(100);
             entity.Property(e => e.Weekday).IsRequired();
             entity.Property(e => e.StartTime).IsRequired();
             entity.Property(e => e.EndTime).IsRequired();
-            entity.HasIndex(e => new { e.AssignmentId, e.Weekday, e.StartTime }).IsUnique();
+            entity.HasIndex(e => new { e.YearId, e.TeacherId, e.Weekday });
+            entity.HasIndex(e => new { e.YearId, e.ClassroomId, e.Weekday });
+            entity.HasIndex(e => new { e.YearId, e.SpaceId, e.Weekday });
+            entity.HasIndex(e => new { e.YearId, e.CampusId });
+            entity.HasIndex(e => e.AssignmentId);
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Campus)
+                .WithMany()
+                .HasForeignKey(e => e.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Teacher)
+                .WithMany()
+                .HasForeignKey(e => e.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.AcademicAssignment)
                 .WithMany()
                 .HasForeignKey(e => e.AssignmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Classroom)
+                .WithMany()
+                .HasForeignKey(e => e.ClassroomId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Space)
+                .WithMany()
+                .HasForeignKey(e => e.SpaceId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -447,6 +497,62 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<Space>(entity =>
+        {
+            entity.ToTable("Space", t =>
+                t.HasCheckConstraint("CK_Space_Capacity", "\"Capacity\" IS NULL OR \"Capacity\" > 0"));
+            entity.HasKey(e => e.SpaceId);
+            entity.Property(e => e.Name).HasMaxLength(80).IsRequired();
+            entity.Property(e => e.Type).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.Active).HasDefaultValue(true);
+            entity.HasIndex(e => new { e.CampusId, e.Name }).IsUnique();
+            entity.HasOne(e => e.Campus)
+                .WithMany()
+                .HasForeignKey(e => e.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
+        modelBuilder.Entity<StudyPlan>(entity =>
+        {
+            entity.ToTable("StudyPlan", t =>
+                t.HasCheckConstraint("CK_StudyPlan_WeeklyHours", "\"WeeklyHours\" BETWEEN 1 AND 40"));
+            entity.HasKey(e => e.StudyPlanId);
+            entity.HasIndex(e => new { e.YearId, e.GradeId, e.SubjectId }).IsUnique();
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Grade)
+                .WithMany()
+                .HasForeignKey(e => e.GradeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Subject)
+                .WithMany()
+                .HasForeignKey(e => e.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TeacherAvailability>(entity =>
+        {
+            entity.ToTable("TeacherAvailability", t =>
+            {
+                t.HasCheckConstraint("CK_TeacherAvailability_Weekday", "\"Weekday\" BETWEEN 1 AND 6");
+                t.HasCheckConstraint("CK_TeacherAvailability_Time", "\"EndTime\" > \"StartTime\"");
+            });
+            entity.HasKey(e => e.TeacherAvailabilityId);
+            entity.HasIndex(e => new { e.YearId, e.TeacherId, e.Weekday });
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Teacher)
+                .WithMany()
+                .HasForeignKey(e => e.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Campus)
+                .WithMany()
+                .HasForeignKey(e => e.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
-}
+}
