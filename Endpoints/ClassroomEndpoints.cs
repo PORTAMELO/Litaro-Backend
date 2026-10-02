@@ -26,6 +26,21 @@ namespace Litaro.Endpoints
                     ? Results.Ok(classroom)
                     : Results.NotFound($"No existe un salón activo con id {id}.");
             });
+
+            app.MapPatch("/classrooms/{id:int}/schedule-settings", async (int id, ClassroomService.ScheduleSettingsRequest request, ClassroomService svc) =>
+            {
+                try
+                {
+                    var classroom = await svc.UpdateScheduleSettingsAsync(id, request);
+                    return classroom is not null
+                        ? Results.Ok(classroom)
+                        : Results.NotFound($"No existe un salón activo con id {id}.");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(ex.Message);
+                }
+            });
         }
 
     }

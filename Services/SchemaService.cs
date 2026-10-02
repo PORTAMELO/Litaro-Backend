@@ -27,7 +27,8 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
         "Campus", "Classroom", "Enrollment", "Grade", "GradeScore", "Parent",
         "ParentStudent", "Schedule", "School", "Student", "StudentLog",
         "Subject", "Teacher", "User", "WebContent", "WebContentConfiguration",
-        "Characteristic", "CharacteristicDetail", "Role"
+        "Characteristic", "CharacteristicDetail", "Role",
+        "Space", "StudyPlan", "TeacherAvailability"
     };
 
     private static readonly Dictionary<string, string> JoinedUserTables = new()

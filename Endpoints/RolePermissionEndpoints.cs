@@ -14,6 +14,7 @@ public static class RolePermissionEndpoints
         "User", "Student", "Parent", "Teacher",
         "Grade", "Classroom", "Subject", "AcademicAssignment", "Schedule",
         "Enrollment", "GradeScore", "Attendance", "StudentLog",
+        "Space", "StudyPlan", "TeacherAvailability",
     ];
 
     public record RolePermissionRow(string TableName, int Permissions, string? View);
