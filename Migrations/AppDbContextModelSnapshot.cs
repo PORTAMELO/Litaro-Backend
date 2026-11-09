@@ -117,6 +117,140 @@ namespace Litaro.Migrations
                     b.ToTable("AcademicYear", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.AdmissionRequest", b =>
+                {
+                    b.Property<int>("AdmissionRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AdmissionRequestId"));
+
+                    b.Property<DateOnly>("BirthDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DecidedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DecisionNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DocumentNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("GradeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GuardianName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("GuardianPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime?>("WaitlistedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<short>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("AdmissionRequestId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("DecidedById");
+
+                    b.HasIndex("GradeId");
+
+                    b.HasIndex("YearId", "DocumentNumber");
+
+                    b.HasIndex("YearId", "Status");
+
+                    b.ToTable("AdmissionRequest", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_AdmissionRequest_Status", "\"Status\" IN ('PENDING','APPROVED','REJECTED','WAITLIST')");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.AdmissionRequestEvent", b =>
+                {
+                    b.Property<int>("AdmissionRequestEventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AdmissionRequestEventId"));
+
+                    b.Property<int>("AdmissionRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("AdmissionRequestEventId");
+
+                    b.HasIndex("AdmissionRequestId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AdmissionRequestEvent", "public");
+                });
+
             modelBuilder.Entity("Litaro.Models.Attendance", b =>
                 {
                     b.Property<int>("AttendanceId")
@@ -285,6 +419,10 @@ namespace Litaro.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<string>("Shift")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.HasKey("ClassroomId");
 
                     b.HasIndex("CampusId");
@@ -360,6 +498,10 @@ namespace Litaro.Migrations
                         .HasColumnType("character varying(12)")
                         .HasDefaultValue("ACTIVE");
 
+                    b.Property<string>("StatusReason")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<int>("StudentId")
                         .HasColumnType("integer");
 
@@ -378,6 +520,42 @@ namespace Litaro.Migrations
                         .IsUnique();
 
                     b.ToTable("Enrollment", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.EnrollmentPeriod", b =>
+                {
+                    b.Property<int>("EnrollmentPeriodId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EnrollmentPeriodId"));
+
+                    b.Property<DateOnly>("AdmissionEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("AdmissionStart")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PreEnrollmentEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PreEnrollmentStart")
+                        .HasColumnType("date");
+
+                    b.Property<short>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("EnrollmentPeriodId");
+
+                    b.HasIndex("YearId")
+                        .IsUnique();
+
+                    b.ToTable("EnrollmentPeriod", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_EnrollmentPeriod_Admission", "\"AdmissionEnd\" >= \"AdmissionStart\"");
+
+                            t.HasCheckConstraint("CK_EnrollmentPeriod_PreEnrollment", "\"PreEnrollmentEnd\" >= \"PreEnrollmentStart\"");
+                        });
                 });
 
             modelBuilder.Entity("Litaro.Models.Grade", b =>
@@ -401,9 +579,15 @@ namespace Litaro.Migrations
                     b.Property<byte>("OrderNum")
                         .HasColumnType("smallint");
 
+                    b.Property<short?>("SimatCode")
+                        .HasColumnType("smallint");
+
                     b.HasKey("GradeId");
 
                     b.HasIndex("OrderNum")
+                        .IsUnique();
+
+                    b.HasIndex("SimatCode")
                         .IsUnique();
 
                     b.ToTable("Grade", "public");
@@ -497,6 +681,57 @@ namespace Litaro.Migrations
                         .IsUnique();
 
                     b.ToTable("ParentStudent", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.PreEnrollment", b =>
+                {
+                    b.Property<int>("PreEnrollmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PreEnrollmentId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GradeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResponseNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasDefaultValue("RESERVED");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("PreEnrollmentId");
+
+                    b.HasIndex("GradeId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("YearId", "Status");
+
+                    b.HasIndex("YearId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("PreEnrollment", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_PreEnrollment_Status", "\"Status\" IN ('RESERVED','CONFIRMED','DECLINED','LOST')");
+                        });
                 });
 
             modelBuilder.Entity("Litaro.Models.RolePermission", b =>
@@ -656,6 +891,73 @@ namespace Litaro.Migrations
                     b.ToTable("School", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.SimatAlert", b =>
+                {
+                    b.Property<int>("SimatAlertId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SimatAlertId"));
+
+                    b.Property<int?>("AdmissionRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ResolvedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<short?>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("SimatAlertId");
+
+                    b.HasIndex("AdmissionRequestId");
+
+                    b.HasIndex("ResolvedById");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("YearId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("Type", "StudentId");
+
+                    b.ToTable("SimatAlert", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_SimatAlert_Status", "\"Status\" IN ('PENDING','DONE')");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.Space", b =>
                 {
                     b.Property<int>("SpaceId")
@@ -709,9 +1011,27 @@ namespace Litaro.Migrations
                     b.Property<DateTime>("BirthDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("BloodType")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("Eps")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<char>("Gender")
                         .HasMaxLength(1)
                         .HasColumnType("character(1)");
+
+                    b.Property<bool>("HasPiar")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Neighborhood")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<long?>("SimatPerId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("StudentCode")
                         .IsRequired()
@@ -719,6 +1039,9 @@ namespace Litaro.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.HasKey("StudentId");
+
+                    b.HasIndex("SimatPerId")
+                        .IsUnique();
 
                     b.HasIndex("StudentCode")
                         .IsUnique();
@@ -1277,6 +1600,59 @@ namespace Litaro.Migrations
                     b.Navigation("AcademicYear");
                 });
 
+            modelBuilder.Entity("Litaro.Models.AdmissionRequest", b =>
+                {
+                    b.HasOne("Litaro.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "DecidedBy")
+                        .WithMany()
+                        .HasForeignKey("DecidedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.Grade", "Grade")
+                        .WithMany()
+                        .HasForeignKey("GradeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("DecidedBy");
+
+                    b.Navigation("Grade");
+                });
+
+            modelBuilder.Entity("Litaro.Models.AdmissionRequestEvent", b =>
+                {
+                    b.HasOne("Litaro.Models.AdmissionRequest", "AdmissionRequest")
+                        .WithMany()
+                        .HasForeignKey("AdmissionRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AdmissionRequest");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Litaro.Models.Attendance", b =>
                 {
                     b.HasOne("Litaro.Models.Enrollment", "Enrollment")
@@ -1381,6 +1757,17 @@ namespace Litaro.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Litaro.Models.EnrollmentPeriod", b =>
+                {
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+                });
+
             modelBuilder.Entity("Litaro.Models.GradeScore", b =>
                 {
                     b.HasOne("Litaro.Models.Enrollment", "Enrollment")
@@ -1434,6 +1821,33 @@ namespace Litaro.Migrations
                         .IsRequired();
 
                     b.Navigation("Parent");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Litaro.Models.PreEnrollment", b =>
+                {
+                    b.HasOne("Litaro.Models.Grade", "Grade")
+                        .WithMany()
+                        .HasForeignKey("GradeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("Grade");
 
                     b.Navigation("Student");
                 });
@@ -1495,6 +1909,37 @@ namespace Litaro.Migrations
                     b.Navigation("Space");
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("Litaro.Models.SimatAlert", b =>
+                {
+                    b.HasOne("Litaro.Models.AdmissionRequest", "AdmissionRequest")
+                        .WithMany()
+                        .HasForeignKey("AdmissionRequestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "ResolvedBy")
+                        .WithMany()
+                        .HasForeignKey("ResolvedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("AdmissionRequest");
+
+                    b.Navigation("ResolvedBy");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Litaro.Models.Space", b =>

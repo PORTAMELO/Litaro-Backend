@@ -7,6 +7,7 @@
         public int GradeId { get; set; }
         public int CampusId { get; set; }
         public bool Active { get; set; } = true;
+        public string? Shift { get; set; }
         public short? ClassMinutes { get; set; }
         public int? DirectorTeacherId { get; set; }
         public Grade Grade { get; set; } = null!;

@@ -6,5 +6,6 @@
         public string Name { get; set; } = string.Empty;
         public byte OrderNum { get; set; }
         public string Level { get; set; } = string.Empty;
+        public short? SimatCode { get; set; }
     }
 }
