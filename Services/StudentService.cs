@@ -11,7 +11,7 @@ namespace Litaro.Services
 
         public record CreateStudentRequest(
         string DocumentType, string DocumentNumber, string FirstName, string LastName,
-        string Email, string? PhoneNumber, string Password, int CampusId,
+        string? Email, string? PhoneNumber, string Password, int CampusId,
         string StudentCode, DateTime BirthDate, char Gender);
 
         public record CreateStudentResult(Student Student, string? TemporaryPassword);
@@ -31,7 +31,7 @@ namespace Litaro.Services
 
         public async Task<CreateStudentResult> CreateAsync(CreateStudentRequest request)
         {
-            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
+            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC", "PPT", "NES", "PEP" };
             if (!validDocTypes.Contains(request.DocumentType))
                 throw new InvalidOperationException($"Tipo de documento '{request.DocumentType}' no válido.");
 
@@ -66,8 +66,8 @@ namespace Litaro.Services
 
                 user = new User
                 {
-                    UserName = request.Email,
-                    Email = request.Email,
+                    UserName = request.DocumentNumber.Trim(),
+                    Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
                     PhoneNumber = request.PhoneNumber,
                     DocumentType = request.DocumentType,
                     DocumentNumber = request.DocumentNumber,

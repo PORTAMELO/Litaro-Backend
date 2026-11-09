@@ -7,6 +7,7 @@
         public int ClassroomId { get; set; }
         public short YearId { get; set; }
         public string Status { get; set; } = "ACTIVE";
+        public string? StatusReason { get; set; }
         public DateTime EnrollmentDate { get; set; } = DateTime.UtcNow;
         public Student Student { get; set; } = null!;
         public Classroom Classroom { get; set; } = null!;

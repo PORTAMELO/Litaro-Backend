@@ -63,6 +63,16 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<TeacherAvailability> TeacherAvailabilities => Set<TeacherAvailability>();
 
+    public DbSet<EnrollmentPeriod> EnrollmentPeriods => Set<EnrollmentPeriod>();
+
+    public DbSet<PreEnrollment> PreEnrollments => Set<PreEnrollment>();
+
+    public DbSet<AdmissionRequest> AdmissionRequests => Set<AdmissionRequest>();
+
+    public DbSet<AdmissionRequestEvent> AdmissionRequestEvents => Set<AdmissionRequestEvent>();
+
+    public DbSet<SimatAlert> SimatAlerts => Set<SimatAlert>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -148,6 +158,10 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.BirthDate).IsRequired();
             entity.Property(e => e.Gender).HasMaxLength(1).IsRequired();
             entity.Property(e => e.Active).HasDefaultValue(true);
+            entity.HasIndex(e => e.SimatPerId).IsUnique();
+            entity.Property(e => e.Neighborhood).HasMaxLength(100);
+            entity.Property(e => e.Eps).HasMaxLength(100);
+            entity.Property(e => e.BloodType).HasMaxLength(5);
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.StudentId)
@@ -204,6 +218,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.OrderNum).IsRequired();
             entity.HasIndex(e => e.OrderNum).IsUnique();
             entity.Property(e => e.Level).HasMaxLength(15).IsRequired();
+            entity.HasIndex(e => e.SimatCode).IsUnique();
         });
 
         modelBuilder.Entity<Classroom>(entity =>
@@ -214,6 +229,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasKey(e => e.ClassroomId);
             entity.Property(e => e.Name).HasMaxLength(10).IsRequired();
             entity.Property(e => e.Active).HasDefaultValue(true);
+            entity.Property(e => e.Shift).HasMaxLength(20);
             entity.HasOne(e => e.Grade)
                 .WithMany()
                 .HasForeignKey(e => e.GradeId)
@@ -319,6 +335,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.ToTable("Enrollment");
             entity.HasKey(e => e.EnrollmentId);
             entity.Property(e => e.Status).HasMaxLength(12).HasDefaultValue("ACTIVE");
+            entity.Property(e => e.StatusReason).HasMaxLength(150);
             entity.Property(e => e.EnrollmentDate).HasDefaultValueSql("CURRENT_DATE");
             entity.HasIndex(e => e.StudentId);
             entity.HasIndex(e => new { e.ClassroomId, e.YearId });
@@ -554,5 +571,124 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 .HasForeignKey(e => e.CampusId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
+        modelBuilder.Entity<EnrollmentPeriod>(entity =>
+        {
+            entity.ToTable("EnrollmentPeriod", t =>
+            {
+                t.HasCheckConstraint("CK_EnrollmentPeriod_PreEnrollment", "\"PreEnrollmentEnd\" >= \"PreEnrollmentStart\"");
+                t.HasCheckConstraint("CK_EnrollmentPeriod_Admission", "\"AdmissionEnd\" >= \"AdmissionStart\"");
+            });
+            entity.HasKey(e => e.EnrollmentPeriodId);
+            entity.HasIndex(e => e.YearId).IsUnique();
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PreEnrollment>(entity =>
+        {
+            entity.ToTable("PreEnrollment", t =>
+                t.HasCheckConstraint("CK_PreEnrollment_Status", "\"Status\" IN ('RESERVED','CONFIRMED','DECLINED','LOST')"));
+            entity.HasKey(e => e.PreEnrollmentId);
+            entity.Property(e => e.Status).HasMaxLength(12).IsRequired().HasDefaultValue(PreEnrollmentStatuses.Reserved);
+            entity.Property(e => e.ResponseNote).HasMaxLength(300);
+            entity.HasIndex(e => new { e.YearId, e.StudentId }).IsUnique();
+            entity.HasIndex(e => new { e.YearId, e.Status });
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Student)
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Grade)
+                .WithMany()
+                .HasForeignKey(e => e.GradeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AdmissionRequest>(entity =>
+        {
+            entity.ToTable("AdmissionRequest", t =>
+                t.HasCheckConstraint("CK_AdmissionRequest_Status", "\"Status\" IN ('PENDING','APPROVED','REJECTED','WAITLIST')"));
+            entity.HasKey(e => e.AdmissionRequestId);
+            entity.Property(e => e.FirstName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.LastName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.DocumentType).HasMaxLength(5).IsRequired();
+            entity.Property(e => e.DocumentNumber).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.GuardianName).HasMaxLength(150).IsRequired();
+            entity.Property(e => e.GuardianPhone).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.Notes).HasMaxLength(500);
+            entity.Property(e => e.Status).HasMaxLength(12).IsRequired().HasDefaultValue(AdmissionStatuses.Pending);
+            entity.Property(e => e.DecisionNote).HasMaxLength(500);
+            entity.HasIndex(e => new { e.YearId, e.Status });
+            entity.HasIndex(e => new { e.YearId, e.DocumentNumber });
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Grade)
+                .WithMany()
+                .HasForeignKey(e => e.GradeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.DecidedBy)
+                .WithMany()
+                .HasForeignKey(e => e.DecidedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AdmissionRequestEvent>(entity =>
+        {
+            entity.ToTable("AdmissionRequestEvent");
+            entity.HasKey(e => e.AdmissionRequestEventId);
+            entity.Property(e => e.FromStatus).HasMaxLength(12);
+            entity.Property(e => e.ToStatus).HasMaxLength(12).IsRequired();
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.HasIndex(e => e.AdmissionRequestId);
+            entity.HasOne(e => e.AdmissionRequest)
+                .WithMany()
+                .HasForeignKey(e => e.AdmissionRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SimatAlert>(entity =>
+        {
+            entity.ToTable("SimatAlert", t =>
+                t.HasCheckConstraint("CK_SimatAlert_Status", "\"Status\" IN ('PENDING','DONE')"));
+            entity.HasKey(e => e.SimatAlertId);
+            entity.Property(e => e.Type).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.Message).HasMaxLength(400).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(10).IsRequired().HasDefaultValue(SimatAlertStatuses.Pending);
+            entity.Property(e => e.ResolutionNote).HasMaxLength(300);
+            entity.HasIndex(e => new { e.Status, e.CreatedAt });
+            entity.HasIndex(e => new { e.Type, e.StudentId });
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Student)
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.AdmissionRequest)
+                .WithMany()
+                .HasForeignKey(e => e.AdmissionRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ResolvedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ResolvedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
-}
+}

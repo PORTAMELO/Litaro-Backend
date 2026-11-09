@@ -30,9 +30,10 @@ builder.Services.AddIdentityCore<User>(options =>
     options.Password.RequiredLength = 8;
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = false;
-    options.User.RequireUniqueEmail = true;
+    options.User.RequireUniqueEmail = false;
 })
 .AddRoles<IdentityRole<int>>()
+.AddUserValidator<OptionalUniqueEmailValidator>()
 .AddEntityFrameworkStores<AppDbContext>()
 .AddSignInManager();
 
@@ -119,6 +120,12 @@ builder.Services.AddScoped<ForeignKeyResolverService>();
 builder.Services.AddScoped<CharacteristicService>();
 builder.Services.AddScoped<LookupService>();
 builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<SimatImportService>();
+builder.Services.AddScoped<SimatAlertService>();
+builder.Services.AddScoped<EnrollmentPeriodService>();
+builder.Services.AddScoped<PreEnrollmentService>();
+builder.Services.AddScoped<AdmissionService>();
+builder.Services.AddScoped<AccountService>();
 
 var app = builder.Build();
 
@@ -132,14 +139,19 @@ app.UseMiddleware<TablePermissionMiddleware>();
 app.MapPost("/auth/login", async (LoginRequest req,
     SignInManager<User> signInManager,
     UserManager<User> userManager,
-    UserService userService) =>
+    UserService userService,
+    AccountService accountService) =>
 {
-    var user = await userManager.FindByEmailAsync(req.Email);
+    var user = await accountService.FindByLoginAsync(req.Email);
+
     if (user is null)
         return Results.Json(new { step = "USER_NULL" }, statusCode: 401);
 
     if (!user.Active)
         return Results.Json(new { step = "USER_INACTIVE" }, statusCode: 401);
+
+    if (user.PasswordHash is null)
+        return Results.Json(new { step = "ACTIVATION_REQUIRED" }, statusCode: 200);
 
     var result = await signInManager.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
     if (!result.Succeeded)
@@ -160,7 +172,7 @@ app.MapPost("/auth/login", async (LoginRequest req,
     var claims = new List<System.Security.Claims.Claim>
     {
             new(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(System.Security.Claims.ClaimTypes.Email, user.Email!),
+            new(System.Security.Claims.ClaimTypes.Email, user.Email ?? string.Empty),
             new(System.Security.Claims.ClaimTypes.GivenName, user.FirstName),
             new(System.Security.Claims.ClaimTypes.Surname, user.LastName)
     };
@@ -256,6 +268,9 @@ app.MapPermissionEndpoints();
 app.MapRoleEndpoints();
 app.MapRolePermissionEndpoints();
 app.MapUserRoleEndpoints();
+app.MapSimatImportEndpoints();
+app.MapEnrollmentProcessEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();
 
