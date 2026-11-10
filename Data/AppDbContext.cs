@@ -73,6 +73,14 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<SimatAlert> SimatAlerts => Set<SimatAlert>();
 
+    public DbSet<NotificationType> NotificationTypes => Set<NotificationType>();
+
+    public DbSet<NotificationTypeRecipient> NotificationTypeRecipients => Set<NotificationTypeRecipient>();
+
+    public DbSet<Notification> Notifications => Set<Notification>();
+
+    public DbSet<NotificationRead> NotificationReads => Set<NotificationRead>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -688,6 +696,88 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasOne(e => e.ResolvedBy)
                 .WithMany()
                 .HasForeignKey(e => e.ResolvedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<NotificationType>(entity =>
+        {
+            entity.ToTable("NotificationType");
+            entity.HasKey(e => e.NotificationTypeId);
+            entity.Property(e => e.Code).HasMaxLength(40).IsRequired();
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Category).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.Template).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.Active).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<NotificationTypeRecipient>(entity =>
+        {
+            entity.ToTable("NotificationTypeRecipient", t =>
+                t.HasCheckConstraint("CK_NotificationTypeRecipient_Target", "(\"RoleId\" IS NULL) <> (\"UserId\" IS NULL)"));
+            entity.HasKey(e => e.NotificationTypeRecipientId);
+            entity.HasIndex(e => new { e.NotificationTypeId, e.RoleId }).IsUnique();
+            entity.HasIndex(e => new { e.NotificationTypeId, e.UserId }).IsUnique();
+            entity.HasOne(e => e.NotificationType)
+                .WithMany()
+                .HasForeignKey(e => e.NotificationTypeId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Role)
+                .WithMany()
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("Notification", t =>
+                t.HasCheckConstraint("CK_Notification_Status", "\"Status\" IN ('PENDING','DONE')"));
+            entity.HasKey(e => e.NotificationId);
+            entity.Property(e => e.Message).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.SourceTable).HasMaxLength(50);
+            entity.Property(e => e.DedupKey).HasMaxLength(150);
+            entity.Property(e => e.Status).HasMaxLength(10).IsRequired().HasDefaultValue(NotificationStatuses.Pending);
+            entity.Property(e => e.DoneNote).HasMaxLength(300);
+            entity.HasIndex(e => e.DedupKey).IsUnique().HasFilter("\"DedupKey\" IS NOT NULL");
+            entity.HasIndex(e => new { e.Status, e.CreatedAt });
+            entity.HasIndex(e => new { e.NotificationTypeId, e.StudentId, e.YearId });
+            entity.HasOne(e => e.NotificationType)
+                .WithMany()
+                .HasForeignKey(e => e.NotificationTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Student)
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Campus)
+                .WithMany()
+                .HasForeignKey(e => e.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.DoneBy)
+                .WithMany()
+                .HasForeignKey(e => e.DoneById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<NotificationRead>(entity =>
+        {
+            entity.ToTable("NotificationRead");
+            entity.HasKey(e => new { e.NotificationId, e.UserId });
+            entity.HasOne(e => e.Notification)
+                .WithMany()
+                .HasForeignKey(e => e.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
