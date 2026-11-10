@@ -634,6 +634,180 @@ namespace Litaro.Migrations
                     b.ToTable("GradeScore", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.Notification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<int?>("CampusId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DedupKey")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("DoneAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DoneById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DoneNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("NotificationTypeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceTable")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<short?>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("CampusId");
+
+                    b.HasIndex("DedupKey")
+                        .IsUnique()
+                        .HasFilter("\"DedupKey\" IS NOT NULL");
+
+                    b.HasIndex("DoneById");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("YearId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("NotificationTypeId", "StudentId", "YearId");
+
+                    b.ToTable("Notification", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_Notification_Status", "\"Status\" IN ('PENDING','DONE')");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.NotificationRead", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("NotificationId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("NotificationRead", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.NotificationType", b =>
+                {
+                    b.Property<int>("NotificationTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("NotificationTypeId"));
+
+                    b.Property<bool>("Active")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("NotificationTypeId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("NotificationType", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.NotificationTypeRecipient", b =>
+                {
+                    b.Property<int>("NotificationTypeRecipientId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("NotificationTypeRecipientId"));
+
+                    b.Property<int>("NotificationTypeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RoleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("NotificationTypeRecipientId");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("NotificationTypeId", "RoleId")
+                        .IsUnique();
+
+                    b.HasIndex("NotificationTypeId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationTypeRecipient", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_NotificationTypeRecipient_Target", "(\"RoleId\" IS NULL) <> (\"UserId\" IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.Parent", b =>
                 {
                     b.Property<int>("ParentId")
@@ -889,73 +1063,6 @@ namespace Litaro.Migrations
                         .IsUnique();
 
                     b.ToTable("School", "public");
-                });
-
-            modelBuilder.Entity("Litaro.Models.SimatAlert", b =>
-                {
-                    b.Property<int>("SimatAlertId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SimatAlertId"));
-
-                    b.Property<int?>("AdmissionRequestId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("character varying(400)");
-
-                    b.Property<string>("ResolutionNote")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("ResolvedById")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasDefaultValue("PENDING");
-
-                    b.Property<int?>("StudentId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<short?>("YearId")
-                        .HasColumnType("smallint");
-
-                    b.HasKey("SimatAlertId");
-
-                    b.HasIndex("AdmissionRequestId");
-
-                    b.HasIndex("ResolvedById");
-
-                    b.HasIndex("StudentId");
-
-                    b.HasIndex("YearId");
-
-                    b.HasIndex("Status", "CreatedAt");
-
-                    b.HasIndex("Type", "StudentId");
-
-                    b.ToTable("SimatAlert", "public", t =>
-                        {
-                            t.HasCheckConstraint("CK_SimatAlert_Status", "\"Status\" IN ('PENDING','DONE')");
-                        });
                 });
 
             modelBuilder.Entity("Litaro.Models.Space", b =>
@@ -1795,6 +1902,89 @@ namespace Litaro.Migrations
                     b.Navigation("Subject");
                 });
 
+            modelBuilder.Entity("Litaro.Models.Notification", b =>
+                {
+                    b.HasOne("Litaro.Models.Campus", "Campus")
+                        .WithMany()
+                        .HasForeignKey("CampusId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "DoneBy")
+                        .WithMany()
+                        .HasForeignKey("DoneById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.NotificationType", "NotificationType")
+                        .WithMany()
+                        .HasForeignKey("NotificationTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("Campus");
+
+                    b.Navigation("DoneBy");
+
+                    b.Navigation("NotificationType");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Litaro.Models.NotificationRead", b =>
+                {
+                    b.HasOne("Litaro.Models.Notification", "Notification")
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Litaro.Models.NotificationTypeRecipient", b =>
+                {
+                    b.HasOne("Litaro.Models.NotificationType", "NotificationType")
+                        .WithMany()
+                        .HasForeignKey("NotificationTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Litaro.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("NotificationType");
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Litaro.Models.Parent", b =>
                 {
                     b.HasOne("Litaro.Models.User", "User")
@@ -1909,37 +2099,6 @@ namespace Litaro.Migrations
                     b.Navigation("Space");
 
                     b.Navigation("Teacher");
-                });
-
-            modelBuilder.Entity("Litaro.Models.SimatAlert", b =>
-                {
-                    b.HasOne("Litaro.Models.AdmissionRequest", "AdmissionRequest")
-                        .WithMany()
-                        .HasForeignKey("AdmissionRequestId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Litaro.Models.User", "ResolvedBy")
-                        .WithMany()
-                        .HasForeignKey("ResolvedById")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Litaro.Models.Student", "Student")
-                        .WithMany()
-                        .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
-                        .WithMany()
-                        .HasForeignKey("YearId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("AcademicYear");
-
-                    b.Navigation("AdmissionRequest");
-
-                    b.Navigation("ResolvedBy");
-
-                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Litaro.Models.Space", b =>
