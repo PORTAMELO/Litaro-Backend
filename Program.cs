@@ -126,6 +126,7 @@ builder.Services.AddScoped<EnrollmentPeriodService>();
 builder.Services.AddScoped<PreEnrollmentService>();
 builder.Services.AddScoped<AdmissionService>();
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<NotificationService>();
 
 var app = builder.Build();
 
