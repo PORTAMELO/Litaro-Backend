@@ -25,4 +25,11 @@
     <Folder Include="Migrations\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Litaro.Tests\**" />
+    <Content Remove="Litaro.Tests\**" />
+    <EmbeddedResource Remove="Litaro.Tests\**" />
+    <None Remove="Litaro.Tests\**" />
+  </ItemGroup>
+
 </Project>
