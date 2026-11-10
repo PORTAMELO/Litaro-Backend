@@ -127,6 +127,7 @@ builder.Services.AddScoped<PreEnrollmentService>();
 builder.Services.AddScoped<AdmissionService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<NotificationSettingsService>();
 
 var app = builder.Build();
 
@@ -272,6 +273,7 @@ app.MapUserRoleEndpoints();
 app.MapSimatImportEndpoints();
 app.MapEnrollmentProcessEndpoints();
 app.MapAccountEndpoints();
+app.MapNotificationEndpoints();
 
 app.Run();
 

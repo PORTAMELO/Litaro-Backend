@@ -14,6 +14,8 @@ public static class ProcessKeys
     public const string ForumModule = "ForumModule";
     public const string SecurityModule = "SecurityModule";
     public const string WebpageModule = "WebpageModule";
+    public const string Notification = "Notification";
+    public const string NotificationSettings = "NotificationSettings";
 }
 
 public static class PermissionCatalog
@@ -51,6 +53,8 @@ public static class PermissionCatalog
         ProcessKeys.ForumModule,
         ProcessKeys.SecurityModule,
         ProcessKeys.WebpageModule,
+        ProcessKeys.Notification,
+        ProcessKeys.NotificationSettings,
     ];
 
     public static bool IsManaged(string key) => Tables.Contains(key) || Processes.Contains(key);
