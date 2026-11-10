@@ -277,8 +277,7 @@ namespace Litaro.Services
                 .Select(s => new { s.StartTime, s.EndTime })
                 .ToListAsync();
 
-            var minutes = blocks.Sum(b => (b.EndTime - b.StartTime).TotalMinutes);
-            return minutes / (classMinutes ?? 60);
+            return blocks.Sum(b => (double)AttendanceRules.Hours(b.StartTime, b.EndTime, classMinutes));
         }
 
         public async Task<object> GetForUserAsync(int userId, short? yearId)
