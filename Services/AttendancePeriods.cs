@@ -21,4 +21,15 @@ public static class AttendancePeriods
 
         return periods.FirstOrDefault(period => Contains(period, date));
     }
+
+    public static async Task<AcademicPeriod?> FindByDateAsync(AppDbContext db, DateOnly date)
+    {
+        var periods = await db.AcademicPeriods
+            .AsNoTracking()
+            .OrderByDescending(p => p.AcademicYear.Active)
+            .ThenByDescending(p => p.YearId)
+            .ToListAsync();
+
+        return periods.FirstOrDefault(period => Contains(period, date));
+    }
 }
