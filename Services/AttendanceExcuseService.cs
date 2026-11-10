@@ -20,7 +20,7 @@ public record ExcuseDto(
     string CreatedBy,
     DateTime CreatedAt);
 
-public class AttendanceExcuseService(AppDbContext db, AttendanceSettingsService settings)
+public class AttendanceExcuseService(AppDbContext db, AttendanceSettingsService settings, AttendanceCalculationService calculation)
 {
     private const int ListLimit = 200;
     private const int ReasonLength = 300;
@@ -106,10 +106,14 @@ public class AttendanceExcuseService(AppDbContext db, AttendanceSettingsService 
         };
         db.AttendanceExcuses.Add(excuse);
 
-        foreach (var absence in await UncoveredAbsencesAsync(request.StudentId, request.StartAt, request.EndAt))
+        var covered = await UncoveredAbsencesAsync(request.StudentId, request.StartAt, request.EndAt);
+
+        foreach (var absence in covered)
             absence.Excuse = excuse;
 
         await db.SaveChangesAsync();
+        await RecalculateForAsync(covered);
+
         return excuse.AttendanceExcuseId;
     }
 
@@ -119,7 +123,10 @@ public class AttendanceExcuseService(AppDbContext db, AttendanceSettingsService 
         if (excuse is null)
             return [];
 
-        var absences = await db.AttendanceAbsences.Where(a => a.AttendanceExcuseId == id).ToListAsync();
+        var absences = await db.AttendanceAbsences
+            .Include(a => a.Session)
+            .Where(a => a.AttendanceExcuseId == id)
+            .ToListAsync();
 
         foreach (var absence in absences)
         {
@@ -129,6 +136,7 @@ public class AttendanceExcuseService(AppDbContext db, AttendanceSettingsService 
 
         db.AttendanceExcuses.Remove(excuse);
         await db.SaveChangesAsync();
+        await RecalculateForAsync(absences);
 
         return absences.Select(a => a.EnrollmentId).Distinct().ToList();
     }
@@ -169,6 +177,34 @@ public class AttendanceExcuseService(AppDbContext db, AttendanceSettingsService 
 
         var moment = session.Date.ToDateTime(session.StartTime.Value);
         return moment >= startAt && moment <= endAt;
+    }
+
+    private async Task RecalculateForAsync(List<AttendanceAbsence> absences)
+    {
+        if (absences.Count == 0)
+            return;
+
+        var periods = new Dictionary<short, (AcademicPeriod Period, HashSet<int> Enrollments)>();
+
+        foreach (var absence in absences)
+        {
+            var period = await AttendancePeriods.FindAsync(db, absence.Session.YearId, absence.Session.Date);
+            if (period is null)
+                continue;
+
+            if (!periods.TryGetValue(period.PeriodId, out var entry))
+            {
+                entry = (period, []);
+                periods[period.PeriodId] = entry;
+            }
+
+            entry.Enrollments.Add(absence.EnrollmentId);
+        }
+
+        foreach (var (period, enrollments) in periods.Values)
+            await calculation.RecalculateAsync(enrollments, period);
+
+        await db.SaveChangesAsync();
     }
 
     private async Task<DateOnly> DeadlineAsync(DateTime endAt)

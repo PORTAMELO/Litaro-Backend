@@ -129,6 +129,7 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<NotificationSettingsService>();
 builder.Services.AddScoped<AttendanceSettingsService>();
 builder.Services.AddScoped<LateArrivalService>();
+builder.Services.AddScoped<AttendanceCalculationService>();
 builder.Services.AddScoped<AttendanceExcuseService>();
 builder.Services.AddScoped<AttendanceRollService>();
 

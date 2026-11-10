@@ -55,7 +55,8 @@ public class AttendanceRollService(
     AttendanceSettingsService settings,
     NotificationService notifications,
     LateArrivalService lateArrivals,
-    AttendanceExcuseService excuses)
+    AttendanceExcuseService excuses,
+    AttendanceCalculationService calculation)
 {
     private const string NoPeriodMessage = "La fecha no pertenece a ningún periodo académico.";
     private const string NoClassMessage = "No hay una clase en ese horario.";
@@ -351,6 +352,10 @@ public class AttendanceRollService(
             ? await ApplyClassTardiesAsync(classroom, session, tardyEntries, slot.SubjectName ?? string.Empty, roster, access.UserId)
             : tardyEntries.Count;
 
+        await db.SaveChangesAsync();
+
+        var affected = existingAbsences.Select(a => a.EnrollmentId).Concat(absentIds).Distinct().ToList();
+        await calculation.RecalculateAsync(affected, period);
         await db.SaveChangesAsync();
 
         if (!isClass)
