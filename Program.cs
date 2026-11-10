@@ -128,6 +128,7 @@ builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<NotificationSettingsService>();
 builder.Services.AddScoped<AttendanceSettingsService>();
+builder.Services.AddScoped<LateArrivalService>();
 
 var app = builder.Build();
 
