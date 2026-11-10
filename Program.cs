@@ -133,6 +133,7 @@ builder.Services.AddScoped<AttendanceCalculationService>();
 builder.Services.AddScoped<AttendanceExcuseService>();
 builder.Services.AddScoped<AttendanceRollService>();
 builder.Services.AddScoped<AttendanceNightlyService>();
+builder.Services.AddScoped<AttendanceOptionsService>();
 builder.Services.AddHostedService<AttendanceNightlyWorker>();
 
 var app = builder.Build();
@@ -280,6 +281,7 @@ app.MapSimatImportEndpoints();
 app.MapEnrollmentProcessEndpoints();
 app.MapAccountEndpoints();
 app.MapNotificationEndpoints();
+app.MapAttendanceRegisterEndpoints();
 
 app.Run();
 

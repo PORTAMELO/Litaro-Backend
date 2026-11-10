@@ -23,6 +23,47 @@ namespace Litaro.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Litaro.Models.AbsenceLoss", b =>
+                {
+                    b.Property<int>("AbsenceLossId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AbsenceLossId"));
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("FlaggedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Percent")
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<short>("PeriodId")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("PlannedHours")
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("UnjustifiedHours")
+                        .HasColumnType("numeric(7,2)");
+
+                    b.HasKey("AbsenceLossId");
+
+                    b.HasIndex("PeriodId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("EnrollmentId", "SubjectId", "PeriodId")
+                        .IsUnique();
+
+                    b.ToTable("AbsenceLoss", "public");
+                });
+
             modelBuilder.Entity("Litaro.Models.AcademicAssignment", b =>
                 {
                     b.Property<int>("AssignmentId")
@@ -289,6 +330,158 @@ namespace Litaro.Migrations
                     b.ToTable("Attendance", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.AttendanceAbsence", b =>
+                {
+                    b.Property<int>("AttendanceAbsenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AttendanceAbsenceId"));
+
+                    b.Property<int?>("AttendanceExcuseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AttendanceSessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.HasKey("AttendanceAbsenceId");
+
+                    b.HasIndex("AttendanceExcuseId");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("AttendanceSessionId", "EnrollmentId")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceAbsence", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_AttendanceAbsence_Status", "\"Status\" IN ('ABSENT','EVASION')");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.AttendanceExcuse", b =>
+                {
+                    b.Property<int>("AttendanceExcuseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AttendanceExcuseId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EndAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("StartAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("AttendanceExcuseId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("AttendanceExcuse", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_AttendanceExcuse_Range", "\"EndAt\" > \"StartAt\"");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.AttendanceSession", b =>
+                {
+                    b.Property<int>("AttendanceSessionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AttendanceSessionId"));
+
+                    b.Property<int?>("AssignmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClassroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("EndTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<TimeOnly?>("StartTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("TakenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TakenById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("AttendanceSessionId");
+
+                    b.HasIndex("AssignmentId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TakenById");
+
+                    b.HasIndex("UpdatedById");
+
+                    b.HasIndex("ClassroomId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AttendanceSession_Daily")
+                        .HasFilter("\"Kind\" = 'DAILY'");
+
+                    b.HasIndex("YearId", "Date");
+
+                    b.HasIndex("ClassroomId", "Date", "StartTime")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AttendanceSession_Class")
+                        .HasFilter("\"Kind\" = 'CLASS'");
+
+                    b.ToTable("AttendanceSession", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_AttendanceSession_Fields", "(\"Kind\" = 'CLASS' AND \"AssignmentId\" IS NOT NULL AND \"SubjectId\" IS NOT NULL AND \"StartTime\" IS NOT NULL AND \"EndTime\" IS NOT NULL AND \"EndTime\" > \"StartTime\") OR (\"Kind\" = 'DAILY' AND \"AssignmentId\" IS NULL AND \"SubjectId\" IS NULL AND \"StartTime\" IS NULL AND \"EndTime\" IS NULL)");
+
+                            t.HasCheckConstraint("CK_AttendanceSession_Kind", "\"Kind\" IN ('CLASS','DAILY')");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.Campus", b =>
                 {
                     b.Property<int>("CampusId")
@@ -387,6 +580,43 @@ namespace Litaro.Migrations
                     b.HasIndex("CharacteristicId");
 
                     b.ToTable("CharacteristicDetail", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.ClassTardiness", b =>
+                {
+                    b.Property<int>("ClassTardinessId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ClassTardinessId"));
+
+                    b.Property<int>("AttendanceSessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Observation")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("RecordedById")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ClassTardinessId");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("RecordedById");
+
+                    b.HasIndex("AttendanceSessionId", "EnrollmentId")
+                        .IsUnique();
+
+                    b.ToTable("ClassTardiness", "public");
                 });
 
             modelBuilder.Entity("Litaro.Models.Classroom", b =>
@@ -634,6 +864,57 @@ namespace Litaro.Migrations
                     b.ToTable("GradeScore", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.JobRun", b =>
+                {
+                    b.Property<string>("JobName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateOnly>("LastRunDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("JobName");
+
+                    b.ToTable("JobRun", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.LateArrival", b =>
+                {
+                    b.Property<int>("LateArrivalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("LateArrivalId"));
+
+                    b.Property<DateTime>("ArrivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CampusId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RecordedById")
+                        .HasColumnType("integer");
+
+                    b.HasKey("LateArrivalId");
+
+                    b.HasIndex("CampusId");
+
+                    b.HasIndex("Date");
+
+                    b.HasIndex("RecordedById");
+
+                    b.HasIndex("EnrollmentId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("LateArrival", "public");
+                });
+
             modelBuilder.Entity("Litaro.Models.Notification", b =>
                 {
                     b.Property<int>("NotificationId")
@@ -855,6 +1136,41 @@ namespace Litaro.Migrations
                         .IsUnique();
 
                     b.ToTable("ParentStudent", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.PeriodPlannedHours", b =>
+                {
+                    b.Property<int>("PeriodPlannedHoursId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PeriodPlannedHoursId"));
+
+                    b.Property<int>("ClassroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<short>("PeriodId")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("PlannedHours")
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("PeriodPlannedHoursId");
+
+                    b.HasIndex("ClassroomId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("PeriodId", "ClassroomId", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("PeriodPlannedHours", "public");
                 });
 
             modelBuilder.Entity("Litaro.Models.PreEnrollment", b =>
@@ -1661,6 +1977,33 @@ namespace Litaro.Migrations
                     b.ToTable("AspNetUserTokens", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.AbsenceLoss", b =>
+                {
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicPeriod", "AcademicPeriod")
+                        .WithMany()
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicPeriod");
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("Subject");
+                });
+
             modelBuilder.Entity("Litaro.Models.AcademicAssignment", b =>
                 {
                     b.HasOne("Litaro.Models.Classroom", "Classroom")
@@ -1779,6 +2122,99 @@ namespace Litaro.Migrations
                     b.Navigation("Subject");
                 });
 
+            modelBuilder.Entity("Litaro.Models.AttendanceAbsence", b =>
+                {
+                    b.HasOne("Litaro.Models.AttendanceExcuse", "Excuse")
+                        .WithMany()
+                        .HasForeignKey("AttendanceExcuseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Litaro.Models.AttendanceSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("Excuse");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Litaro.Models.AttendanceExcuse", b =>
+                {
+                    b.HasOne("Litaro.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Litaro.Models.AttendanceSession", b =>
+                {
+                    b.HasOne("Litaro.Models.AcademicAssignment", "AcademicAssignment")
+                        .WithMany()
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "TakenBy")
+                        .WithMany()
+                        .HasForeignKey("TakenById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicAssignment");
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("TakenBy");
+
+                    b.Navigation("UpdatedBy");
+                });
+
             modelBuilder.Entity("Litaro.Models.Campus", b =>
                 {
                     b.HasOne("Litaro.Models.School", "School")
@@ -1799,6 +2235,33 @@ namespace Litaro.Migrations
                         .IsRequired();
 
                     b.Navigation("Characteristic");
+                });
+
+            modelBuilder.Entity("Litaro.Models.ClassTardiness", b =>
+                {
+                    b.HasOne("Litaro.Models.AttendanceSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("RecordedBy");
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("Litaro.Models.Classroom", b =>
@@ -1900,6 +2363,33 @@ namespace Litaro.Migrations
                     b.Navigation("Enrollment");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Litaro.Models.LateArrival", b =>
+                {
+                    b.HasOne("Litaro.Models.Campus", "Campus")
+                        .WithMany()
+                        .HasForeignKey("CampusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Campus");
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("RecordedBy");
                 });
 
             modelBuilder.Entity("Litaro.Models.Notification", b =>
@@ -2013,6 +2503,33 @@ namespace Litaro.Migrations
                     b.Navigation("Parent");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Litaro.Models.PeriodPlannedHours", b =>
+                {
+                    b.HasOne("Litaro.Models.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicPeriod", "AcademicPeriod")
+                        .WithMany()
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicPeriod");
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("Litaro.Models.PreEnrollment", b =>
