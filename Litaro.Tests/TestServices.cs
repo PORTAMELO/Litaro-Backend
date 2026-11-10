@@ -9,6 +9,7 @@ public sealed class TestServices
     public required NotificationService Notifications { get; init; }
     public required LateArrivalService LateArrivals { get; init; }
     public required AttendanceRollService Roll { get; init; }
+    public required AttendanceExcuseService Excuses { get; init; }
 
     public static TestServices Create(AppDbContext db)
     {
@@ -16,7 +17,8 @@ public sealed class TestServices
         var notifications = new NotificationService(db);
         var lateArrivals = new LateArrivalService(db, settings, notifications);
 
-        var roll = new AttendanceRollService(db, settings, notifications, lateArrivals);
+        var excuses = new AttendanceExcuseService(db, settings);
+        var roll = new AttendanceRollService(db, settings, notifications, lateArrivals, excuses);
 
         return new TestServices
         {
@@ -24,6 +26,7 @@ public sealed class TestServices
             Notifications = notifications,
             LateArrivals = lateArrivals,
             Roll = roll,
+            Excuses = excuses,
         };
     }
 }

@@ -54,7 +54,8 @@ public class AttendanceRollService(
     AppDbContext db,
     AttendanceSettingsService settings,
     NotificationService notifications,
-    LateArrivalService lateArrivals)
+    LateArrivalService lateArrivals,
+    AttendanceExcuseService excuses)
 {
     private const string NoPeriodMessage = "La fecha no pertenece a ningún periodo académico.";
     private const string NoClassMessage = "No hay una clase en ese horario.";
@@ -326,6 +327,7 @@ public class AttendanceRollService(
         db.AttendanceAbsences.RemoveRange(existingAbsences.Where(a => !absentIds.Contains(a.EnrollmentId)));
 
         var absences = existingAbsences.Where(a => absentIds.Contains(a.EnrollmentId)).ToList();
+        var newAbsences = new List<AttendanceAbsence>();
 
         foreach (var enrollmentId in absentIds.Where(id => absences.All(a => a.EnrollmentId != id)))
         {
@@ -337,7 +339,10 @@ public class AttendanceRollService(
             };
             db.AttendanceAbsences.Add(absence);
             absences.Add(absence);
+            newAbsences.Add(absence);
         }
+
+        await excuses.LinkCoveringAsync(session, newAbsences);
 
         if (isClass)
             await ApplyEvasionAsync(classroom, session, absences, slot.SubjectName ?? string.Empty, roster);
