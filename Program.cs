@@ -132,6 +132,8 @@ builder.Services.AddScoped<LateArrivalService>();
 builder.Services.AddScoped<AttendanceCalculationService>();
 builder.Services.AddScoped<AttendanceExcuseService>();
 builder.Services.AddScoped<AttendanceRollService>();
+builder.Services.AddScoped<AttendanceNightlyService>();
+builder.Services.AddHostedService<AttendanceNightlyWorker>();
 
 var app = builder.Build();
 
