@@ -16,6 +16,11 @@ public static class ProcessKeys
     public const string WebpageModule = "WebpageModule";
     public const string Notification = "Notification";
     public const string NotificationSettings = "NotificationSettings";
+    public const string AttendanceRoll = "AttendanceRoll";
+    public const string AttendanceSummary = "AttendanceSummary";
+    public const string LateArrival = "LateArrival";
+    public const string AttendanceExcuse = "AttendanceExcuse";
+    public const string AttendanceSettings = "AttendanceSettings";
 }
 
 public static class PermissionCatalog
@@ -55,6 +60,11 @@ public static class PermissionCatalog
         ProcessKeys.WebpageModule,
         ProcessKeys.Notification,
         ProcessKeys.NotificationSettings,
+        ProcessKeys.AttendanceRoll,
+        ProcessKeys.AttendanceSummary,
+        ProcessKeys.LateArrival,
+        ProcessKeys.AttendanceExcuse,
+        ProcessKeys.AttendanceSettings,
     ];
 
     public static bool IsManaged(string key) => Tables.Contains(key) || Processes.Contains(key);
