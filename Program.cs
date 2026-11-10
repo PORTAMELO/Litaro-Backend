@@ -121,7 +121,6 @@ builder.Services.AddScoped<CharacteristicService>();
 builder.Services.AddScoped<LookupService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<SimatImportService>();
-builder.Services.AddScoped<SimatAlertService>();
 builder.Services.AddScoped<EnrollmentPeriodService>();
 builder.Services.AddScoped<PreEnrollmentService>();
 builder.Services.AddScoped<AdmissionService>();

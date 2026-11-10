@@ -26,7 +26,7 @@ public record GeneratePreEnrollmentsResult(
     int AlreadyEnrolled,
     int WithoutNextGrade);
 
-public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService periods, SimatAlertService alerts)
+public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService periods, NotificationService notifications)
 {
     private const string ActiveEnrollment = "ACTIVE";
 
@@ -164,12 +164,15 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
 
         if (!confirm)
         {
-            alerts.Add(
-                SimatAlertTypes.CupoReleased,
-                $"La familia de {FullName(item.Student.User)} ({item.Student.User.DocumentNumber}) no continuará en {item.YearId}. " +
-                "Registre la novedad en el SIMAT.",
-                item.YearId,
-                item.StudentId);
+            await notifications.QueueAsync(
+                NotificationCodes.SimatCupoDeclined,
+                new Dictionary<string, string>
+                {
+                    ["estudiante"] = FullName(item.Student.User),
+                    ["documento"] = item.Student.User.DocumentNumber,
+                    ["anio"] = item.YearId.ToString(),
+                },
+                new NotificationTarget(StudentId: item.StudentId, YearId: item.YearId));
         }
 
         await db.SaveChangesAsync();
@@ -196,12 +199,16 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
             item.Status = PreEnrollmentStatuses.Lost;
             item.ResponseNote = $"La familia no respondió antes del {deadline}.";
 
-            alerts.Add(
-                SimatAlertTypes.CupoReleased,
-                $"{FullName(item.Student.User)} ({item.Student.User.DocumentNumber}) perdió el cupo {yearId}: " +
-                $"la familia no respondió antes del {deadline}. Registre la novedad en el SIMAT.",
-                yearId,
-                item.StudentId);
+            await notifications.QueueAsync(
+                NotificationCodes.SimatCupoLost,
+                new Dictionary<string, string>
+                {
+                    ["estudiante"] = FullName(item.Student.User),
+                    ["documento"] = item.Student.User.DocumentNumber,
+                    ["anio"] = yearId.ToString(),
+                    ["fecha"] = deadline,
+                },
+                new NotificationTarget(StudentId: item.StudentId, YearId: yearId));
         }
 
         await db.SaveChangesAsync();

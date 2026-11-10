@@ -45,7 +45,7 @@ public record CreateAdmissionRequest(
     string GuardianPhone,
     string? Notes);
 
-public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, SimatAlertService alerts)
+public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, NotificationService notifications)
 {
     public async Task<List<AdmissionDto>> ListAsync(short yearId)
     {
@@ -243,14 +243,19 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
                 .Select(g => g.Name)
                 .FirstAsync();
 
-            alerts.Add(
-                SimatAlertTypes.AdmissionApproved,
-                $"El Rector aprobó la admisión de {admission.FirstName} {admission.LastName} " +
-                $"({admission.DocumentType} {admission.DocumentNumber}) a {gradeName} para {admission.YearId}. " +
-                "Regístrelo como estudiante nuevo en el SIMAT.",
-                admission.YearId,
-                null,
-                admission.AdmissionRequestId);
+            await notifications.QueueAsync(
+                NotificationCodes.SimatAdmissionApproved,
+                new Dictionary<string, string>
+                {
+                    ["aspirante"] = $"{admission.FirstName} {admission.LastName}",
+                    ["documento"] = $"{admission.DocumentType} {admission.DocumentNumber}",
+                    ["grado"] = gradeName,
+                    ["anio"] = admission.YearId.ToString(),
+                },
+                new NotificationTarget(
+                    YearId: admission.YearId,
+                    SourceTable: "AdmissionRequest",
+                    SourceId: admission.AdmissionRequestId));
         }
 
         await db.SaveChangesAsync();

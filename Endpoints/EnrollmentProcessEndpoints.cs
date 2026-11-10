@@ -8,7 +8,6 @@ public static class EnrollmentProcessEndpoints
 {
     public record RespondRequest(bool Confirm, string? Note);
     public record DecisionRequest(string? Decision, string? Note);
-    public record ResolveAlertsRequest(List<int>? Ids, string? Note);
 
     public static void MapEnrollmentProcessEndpoints(this WebApplication app)
     {
@@ -109,27 +108,6 @@ public static class EnrollmentProcessEndpoints
                 }
             })
             .RequirePermission(ProcessKeys.AdmissionDecision, PermissionFlags.Update);
-
-        group.MapGet("/simat-alerts", async (string? status, SimatAlertService svc) =>
-                Results.Ok(await svc.ListAsync(status)))
-            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
-
-        group.MapPost("/simat-alerts/resolve", async (ResolveAlertsRequest request, ClaimsPrincipal user, SimatAlertService svc) =>
-            {
-                if (CurrentUserId(user) is not { } userId)
-                    return Results.Unauthorized();
-
-                try
-                {
-                    var resolved = await svc.ResolveAsync(request.Ids ?? [], request.Note, userId);
-                    return Results.Ok(new { resolved });
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.BadRequest(new { message = ex.Message });
-                }
-            })
-            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
     }
 
     private static int? CurrentUserId(ClaimsPrincipal user) =>

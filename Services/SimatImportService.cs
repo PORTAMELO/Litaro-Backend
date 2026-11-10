@@ -29,7 +29,7 @@ public class SimatImportResult
     public List<SimatMissingStudent> MissingInSimat { get; } = [];
 }
 
-public class SimatImportService(AppDbContext db, UserManager<User> userManager, SimatAlertService alerts)
+public class SimatImportService(AppDbContext db, UserManager<User> userManager, NotificationService notifications)
 {
     public const string Error = "Error";
     public const string Conflict = "Conflicto";
@@ -439,28 +439,25 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
         if (result.MissingInSimat.Count == 0)
             return 0;
 
-        var pendingStudentIds = await db.SimatAlerts
-            .Where(a => a.Type == SimatAlertTypes.NotInSimat
-                        && a.Status == SimatAlertStatuses.Pending
-                        && a.YearId == yearId)
-            .Select(a => a.StudentId)
-            .ToListAsync();
-
-        var alreadyPending = pendingStudentIds.OfType<int>().ToHashSet();
         var created = 0;
 
         foreach (var missing in result.MissingInSimat)
         {
-            if (alreadyPending.Contains(missing.StudentId))
+            if (await notifications.HasPendingAsync(NotificationCodes.SimatNotInSimat, missing.StudentId, yearId))
                 continue;
 
-            alerts.Add(
-                SimatAlertTypes.NotInSimat,
-                $"{missing.Name} ({missing.Document}) está matriculado en LITARO {yearId} pero no aparece en el archivo " +
-                "del SIMAT. Verifique en el SIMAT y regístrelo o corríjalo a mano.",
-                yearId,
-                missing.StudentId);
-            created++;
+            var queued = await notifications.QueueAsync(
+                NotificationCodes.SimatNotInSimat,
+                new Dictionary<string, string>
+                {
+                    ["estudiante"] = missing.Name,
+                    ["documento"] = missing.Document,
+                    ["anio"] = yearId.ToString(),
+                },
+                new NotificationTarget(StudentId: missing.StudentId, YearId: yearId));
+
+            if (queued is not null)
+                created++;
         }
 
         return created;

@@ -16,19 +16,6 @@ namespace Litaro.Models
         public const string Waitlist = "WAITLIST";
     }
 
-    public static class SimatAlertTypes
-    {
-        public const string AdmissionApproved = "ADMISSION_APPROVED";
-        public const string CupoReleased = "CUPO_RELEASED";
-        public const string NotInSimat = "NOT_IN_SIMAT";
-    }
-
-    public static class SimatAlertStatuses
-    {
-        public const string Pending = "PENDING";
-        public const string Done = "DONE";
-    }
-
     public class EnrollmentPeriod
     {
         public int EnrollmentPeriodId { get; set; }
@@ -92,24 +79,5 @@ namespace Litaro.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public AdmissionRequest AdmissionRequest { get; set; } = null!;
         public User User { get; set; } = null!;
-    }
-
-    public class SimatAlert
-    {
-        public int SimatAlertId { get; set; }
-        public string Type { get; set; } = string.Empty;
-        public short? YearId { get; set; }
-        public int? StudentId { get; set; }
-        public int? AdmissionRequestId { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public string Status { get; set; } = SimatAlertStatuses.Pending;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? ResolvedAt { get; set; }
-        public int? ResolvedById { get; set; }
-        public string? ResolutionNote { get; set; }
-        public AcademicYear? AcademicYear { get; set; }
-        public Student? Student { get; set; }
-        public AdmissionRequest? AdmissionRequest { get; set; }
-        public User? ResolvedBy { get; set; }
     }
 }

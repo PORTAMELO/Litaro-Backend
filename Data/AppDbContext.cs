@@ -71,8 +71,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<AdmissionRequestEvent> AdmissionRequestEvents => Set<AdmissionRequestEvent>();
 
-    public DbSet<SimatAlert> SimatAlerts => Set<SimatAlert>();
-
     public DbSet<NotificationType> NotificationTypes => Set<NotificationType>();
 
     public DbSet<NotificationTypeRecipient> NotificationTypeRecipients => Set<NotificationTypeRecipient>();
@@ -667,35 +665,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<SimatAlert>(entity =>
-        {
-            entity.ToTable("SimatAlert", t =>
-                t.HasCheckConstraint("CK_SimatAlert_Status", "\"Status\" IN ('PENDING','DONE')"));
-            entity.HasKey(e => e.SimatAlertId);
-            entity.Property(e => e.Type).HasMaxLength(30).IsRequired();
-            entity.Property(e => e.Message).HasMaxLength(400).IsRequired();
-            entity.Property(e => e.Status).HasMaxLength(10).IsRequired().HasDefaultValue(SimatAlertStatuses.Pending);
-            entity.Property(e => e.ResolutionNote).HasMaxLength(300);
-            entity.HasIndex(e => new { e.Status, e.CreatedAt });
-            entity.HasIndex(e => new { e.Type, e.StudentId });
-            entity.HasOne(e => e.AcademicYear)
-                .WithMany()
-                .HasForeignKey(e => e.YearId)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.Student)
-                .WithMany()
-                .HasForeignKey(e => e.StudentId)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.AdmissionRequest)
-                .WithMany()
-                .HasForeignKey(e => e.AdmissionRequestId)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.ResolvedBy)
-                .WithMany()
-                .HasForeignKey(e => e.ResolvedById)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
