@@ -1,14 +1,11 @@
 using System.Security.Claims;
+using Litaro.Models;
 using Litaro.Services;
 
 namespace Litaro.Endpoints;
 
 public static class EnrollmentProcessEndpoints
 {
-    private static readonly string[] Staff = ["Administrador", "Secretaría", "Secretaria"];
-    private static readonly string[] StaffAndRector = ["Administrador", "Secretaría", "Secretaria", "Rector"];
-    private static readonly string[] RectorOnly = ["Rector"];
-
     public record RespondRequest(bool Confirm, string? Note);
     public record DecisionRequest(string? Decision, string? Note);
     public record ResolveAlertsRequest(List<int>? Ids, string? Note);
@@ -19,13 +16,13 @@ public static class EnrollmentProcessEndpoints
 
         group.MapGet("/options", async (EnrollmentPeriodService periods) =>
                 Results.Ok(await periods.GetOptionsAsync()))
-            .RequireAuthorization(policy => policy.RequireRole(StaffAndRector));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Read);
 
         group.MapGet("/periods/{yearId}", async (short yearId, EnrollmentPeriodService periods) =>
                 await periods.GetAsync(yearId) is { } period
                     ? Results.Ok(period)
                     : Results.NoContent())
-            .RequireAuthorization(policy => policy.RequireRole(StaffAndRector));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Read);
 
         group.MapPut("/periods/{yearId}", async (short yearId, SaveEnrollmentPeriodRequest request, EnrollmentPeriodService periods) =>
             {
@@ -38,11 +35,11 @@ public static class EnrollmentProcessEndpoints
                     return Results.BadRequest(new { message = ex.Message });
                 }
             })
-            .RequireAuthorization(policy => policy.RequireRole(Staff));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
 
         group.MapGet("/pre-enrollments", async (short yearId, PreEnrollmentService svc) =>
                 Results.Ok(await svc.ListAsync(yearId)))
-            .RequireAuthorization(policy => policy.RequireRole(StaffAndRector));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Read);
 
         group.MapPost("/pre-enrollments/generate", async (short yearId, PreEnrollmentService svc) =>
             {
@@ -55,7 +52,7 @@ public static class EnrollmentProcessEndpoints
                     return Results.BadRequest(new { message = ex.Message });
                 }
             })
-            .RequireAuthorization(policy => policy.RequireRole(Staff));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Create);
 
         group.MapPost("/pre-enrollments/{id}/respond", async (int id, RespondRequest request, PreEnrollmentService svc) =>
             {
@@ -69,15 +66,15 @@ public static class EnrollmentProcessEndpoints
                     return Results.BadRequest(new { message = ex.Message });
                 }
             })
-            .RequireAuthorization(policy => policy.RequireRole(Staff));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
 
         group.MapGet("/admissions", async (short yearId, AdmissionService svc) =>
                 Results.Ok(await svc.ListAsync(yearId)))
-            .RequireAuthorization(policy => policy.RequireRole(StaffAndRector));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Read);
 
         group.MapGet("/admissions/{id}/events", async (int id, AdmissionService svc) =>
                 Results.Ok(await svc.GetEventsAsync(id)))
-            .RequireAuthorization(policy => policy.RequireRole(StaffAndRector));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Read);
 
         group.MapPost("/admissions", async (CreateAdmissionRequest request, ClaimsPrincipal user, AdmissionService svc) =>
             {
@@ -94,7 +91,7 @@ public static class EnrollmentProcessEndpoints
                     return Results.BadRequest(new { message = ex.Message });
                 }
             })
-            .RequireAuthorization(policy => policy.RequireRole(Staff));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Create);
 
         group.MapPost("/admissions/{id}/decision", async (int id, DecisionRequest request, ClaimsPrincipal user, AdmissionService svc) =>
             {
@@ -111,11 +108,11 @@ public static class EnrollmentProcessEndpoints
                     return Results.BadRequest(new { message = ex.Message });
                 }
             })
-            .RequireAuthorization(policy => policy.RequireRole(RectorOnly));
+            .RequirePermission(ProcessKeys.AdmissionDecision, PermissionFlags.Update);
 
         group.MapGet("/simat-alerts", async (string? status, SimatAlertService svc) =>
                 Results.Ok(await svc.ListAsync(status)))
-            .RequireAuthorization(policy => policy.RequireRole(Staff));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
 
         group.MapPost("/simat-alerts/resolve", async (ResolveAlertsRequest request, ClaimsPrincipal user, SimatAlertService svc) =>
             {
@@ -132,7 +129,7 @@ public static class EnrollmentProcessEndpoints
                     return Results.BadRequest(new { message = ex.Message });
                 }
             })
-            .RequireAuthorization(policy => policy.RequireRole(Staff));
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
     }
 
     private static int? CurrentUserId(ClaimsPrincipal user) =>
