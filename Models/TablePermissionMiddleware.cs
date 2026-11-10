@@ -49,7 +49,7 @@ public class TablePermissionMiddleware(RequestDelegate next)
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new
                 {
-                    message = "No tienes permiso para realizar esta acción."
+                    message = PermissionCatalog.DeniedMessage
                 });
                 return;
             }

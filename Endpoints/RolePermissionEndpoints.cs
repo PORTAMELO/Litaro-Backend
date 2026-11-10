@@ -6,18 +6,7 @@ namespace Litaro.Endpoints;
 
 public static class RolePermissionEndpoints
 {
-
-    private static readonly string[] ManagedTables =
-    [
-        "School", "Campus", "AcademicYear", "AcademicPeriod",
-        "Characteristic", "CharacteristicDetail",
-        "User", "Student", "Parent", "Teacher",
-        "Grade", "Classroom", "Subject", "AcademicAssignment", "Schedule",
-        "Enrollment", "GradeScore", "Attendance", "StudentLog",
-        "Space", "StudyPlan", "TeacherAvailability",
-    ];
-
-    public record RolePermissionRow(string TableName, int Permissions, string? View);
+    public record RolePermissionRow(string TableName, int Permissions, string? View, string Kind);
     public record SaveRolePermissionRequest(int RoleId, string TableName, int Permissions, string? View);
 
     public static void MapRolePermissionEndpoints(this WebApplication app)
@@ -28,17 +17,17 @@ public static class RolePermissionEndpoints
                 .Where(rp => rp.RoleId == roleId)
                 .ToDictionaryAsync(rp => rp.TableName);
 
-            var rows = ManagedTables.Select(table =>
-                existing.TryGetValue(table, out var rp)
-                    ? new RolePermissionRow(table, rp.Permissions, rp.View)
-                    : new RolePermissionRow(table, 0, null));
+            var rows = PermissionCatalog.Tables.Concat(PermissionCatalog.Processes).Select(key =>
+                existing.TryGetValue(key, out var rp)
+                    ? new RolePermissionRow(key, rp.Permissions, rp.View, PermissionCatalog.KindOf(key))
+                    : new RolePermissionRow(key, 0, null, PermissionCatalog.KindOf(key)));
 
             return Results.Ok(rows);
         }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
         app.MapPut("/role-permissions", async (SaveRolePermissionRequest request, AppDbContext db) =>
         {
-            if (!ManagedTables.Contains(request.TableName))
+            if (!PermissionCatalog.IsManaged(request.TableName))
                 return Results.BadRequest("Tabla no administrable.");
 
             if (request.Permissions is < 0 or > 15)
@@ -58,7 +47,7 @@ public static class RolePermissionEndpoints
 
             await db.SaveChangesAsync();
 
-            return Results.Ok(new RolePermissionRow(row.TableName, row.Permissions, row.View));
+            return Results.Ok(new RolePermissionRow(row.TableName, row.Permissions, row.View, PermissionCatalog.KindOf(row.TableName)));
         }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
     }
 }
