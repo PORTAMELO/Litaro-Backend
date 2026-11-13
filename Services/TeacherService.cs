@@ -17,7 +17,7 @@ namespace Litaro.Services
 
         public Task<List<Teacher>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var query = db.Teachers.Include(t => t.User).AsQueryable();
+            var query = db.Teachers.AsNoTracking().Include(t => t.User).AsQueryable();
 
             if (filters is not null && filters.Count > 0)
                 query = query.ApplyFilters(filters);

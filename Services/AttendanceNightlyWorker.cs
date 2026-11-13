@@ -7,6 +7,7 @@ namespace Litaro.Services;
 public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<AttendanceNightlyWorker> logger) : BackgroundService
 {
     private const int LockKey = 4202;
+    private const int PlannerLockKey = 4203;
 
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(10);
@@ -34,6 +35,8 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
 
     private async Task TickAsync(CancellationToken stoppingToken)
     {
+        await CheckPlannerDeadlineAsync(stoppingToken);
+
         try
         {
             using var scope = scopes.CreateScope();
@@ -89,6 +92,46 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
         catch (Exception ex)
         {
             logger.LogError(ex, "El proceso nocturno de asistencia falló.");
+        }
+    }
+
+    private async Task CheckPlannerDeadlineAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var locks = db.Database.IsNpgsql();
+
+            if (locks)
+            {
+                await db.Database.OpenConnectionAsync(stoppingToken);
+
+                var acquired = await db.Database
+                    .SqlQuery<bool>($"SELECT pg_try_advisory_lock({PlannerLockKey}) AS \"Value\"")
+                    .SingleAsync(stoppingToken);
+
+                if (!acquired)
+                    return;
+            }
+
+            try
+            {
+                await scope.ServiceProvider.GetRequiredService<StudyPlannerService>().NotifyOverdueAsync(DateTime.UtcNow);
+            }
+            finally
+            {
+                if (locks)
+                    await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_unlock({PlannerLockKey})", CancellationToken.None);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "La revisión del plazo de planes de estudio falló.");
         }
     }
 }

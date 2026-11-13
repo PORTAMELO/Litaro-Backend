@@ -10,7 +10,7 @@ public class TeacherAvailabilityService(AppDbContext db)
 
     public Task<List<TeacherAvailability>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
-        var query = db.TeacherAvailabilities.AsQueryable();
+        var query = db.TeacherAvailabilities.AsNoTracking().AsQueryable();
 
         if (filters is not null && filters.Count > 0)
             query = query.ApplyFilters(filters);

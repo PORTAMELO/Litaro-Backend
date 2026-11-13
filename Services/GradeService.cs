@@ -8,7 +8,7 @@ namespace Litaro.Services
     {
         public Task<List<Grade>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var query = db.Grades.AsQueryable();
+            var query = db.Grades.AsNoTracking().AsQueryable();
 
             if (filters is not null && filters.Count > 0)
                 query = query.ApplyFilters(filters);

@@ -204,4 +204,127 @@ public class NotificationServiceTests
         Assert.Single(await scene.Service.ListAsync(scene.Luis.Id, "UNREAD", null));
         Assert.Empty(await scene.Service.ListAsync(scene.Luis.Id, "PENDING", null));
     }
+
+    [Fact]
+    public async Task Mark_read_many_marks_only_visible_unread_for_that_user()
+    {
+        var scene = Create();
+        var first = await QueueSavedAsync(scene);
+        var second = await QueueSavedAsync(scene);
+        var third = await QueueSavedAsync(scene);
+        await scene.Service.MarkReadAsync(first, scene.Marta.Id);
+
+        Assert.Equal(2, await scene.Service.MarkReadManyAsync([first, second, third, 9999], scene.Marta.Id));
+        Assert.Equal(0, (await scene.Service.SummaryAsync(scene.Marta.Id)).Unread);
+        Assert.Equal(3, (await scene.Service.SummaryAsync(scene.Luis.Id)).Unread);
+        Assert.Equal(0, await scene.Service.MarkReadManyAsync([first, second], scene.Pedro.Id));
+        Assert.Equal(0, await scene.Service.MarkReadManyAsync([first, second], scene.Marta.Id));
+    }
+
+    private static async Task<List<int>> QueueManyAsync(Scene scene, int count)
+    {
+        var queued = new List<Notification>();
+
+        for (var i = 0; i < count; i++)
+            queued.Add((await scene.Service.QueueAsync("T1", Ana))!);
+
+        await scene.Db.SaveChangesAsync();
+        return queued.Select(n => n.NotificationId).ToList();
+    }
+
+    [Fact]
+    public async Task Page_shows_every_notification_with_counts()
+    {
+        var scene = Create();
+        var ids = await QueueManyAsync(scene, 620);
+        await scene.Service.MarkReadManyAsync(ids.Take(10).ToList(), scene.Marta.Id);
+        await scene.Service.MarkDoneAsync(ids.Skip(10).Take(5).ToList(), null, scene.Luis.Id);
+
+        var last = await scene.Service.PageAsync(scene.Marta.Id, null, null, 13, 50);
+
+        Assert.Equal(620, last.Total);
+        Assert.Equal(20, last.Rows.Count);
+        Assert.Equal(13, last.Page);
+        Assert.Equal(new NotificationCountsDto(620, 605, 10, 5), last.Counts);
+        Assert.Equal(["T1"], last.Types.Select(t => t.Name));
+        Assert.Equal(5, last.Rows.Count(row => row.State == NotificationStates.Done));
+        Assert.Equal(NotificationStates.Done, last.Rows[^1].State);
+
+        var unread = await scene.Service.PageAsync(scene.Marta.Id, "unread", null, 1, 50);
+
+        Assert.Equal(605, unread.Total);
+        Assert.Equal(50, unread.Rows.Count);
+        Assert.All(unread.Rows, row => Assert.Equal(NotificationStates.Unread, row.State));
+    }
+
+    [Fact]
+    public async Task Page_counts_and_total_match_each_state_filter()
+    {
+        var scene = Create();
+        var other = TestData.AddNotificationType(scene.Db, "T2", "{estudiante} llegó tarde.", scene.Db.Roles.Single());
+        var ids = await QueueManyAsync(scene, 6);
+        await scene.Service.QueueAsync("T2", Ana);
+        await scene.Db.SaveChangesAsync();
+        await scene.Service.MarkReadManyAsync(ids.Take(2).ToList(), scene.Marta.Id);
+        await scene.Service.MarkDoneAsync(ids.Skip(5).Take(1).ToList(), null, scene.Luis.Id);
+
+        foreach (var typeId in new int?[] { null, scene.Type.NotificationTypeId, other.NotificationTypeId })
+        {
+            async Task<int> Count(string? state) => (await scene.Service.ListAsync(scene.Marta.Id, state, typeId)).Count;
+
+            var expectedCounts = new NotificationCountsDto(await Count(null), await Count("unread"), await Count("pending"), await Count("done"));
+
+            foreach (var state in new[] { null, "unread", "pending", "done", "otro" })
+            {
+                var page = await scene.Service.PageAsync(scene.Marta.Id, state, typeId, 1, 50);
+
+                Assert.Equal(expectedCounts, page.Counts);
+                Assert.Equal(await Count(state), page.Total);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Page_clamps_page_and_size()
+    {
+        var scene = Create();
+        await QueueManyAsync(scene, 3);
+
+        var page = await scene.Service.PageAsync(scene.Marta.Id, null, null, 0, 1000);
+
+        Assert.Equal(1, page.Page);
+        Assert.Equal(NotificationService.MaxPageSize, page.PageSize);
+        Assert.Equal(3, page.Rows.Count);
+
+        var beyond = await scene.Service.PageAsync(scene.Marta.Id, null, null, 99, 50);
+
+        Assert.Equal(1, beyond.Page);
+        Assert.Equal(3, beyond.Rows.Count);
+    }
+
+    [Fact]
+    public async Task Matching_actions_apply_to_the_whole_filter()
+    {
+        var scene = Create();
+        var other = TestData.AddNotificationType(scene.Db, "T2", "{estudiante} llegó tarde.", scene.Db.Roles.Single());
+        await QueueManyAsync(scene, 70);
+        await scene.Service.QueueAsync("T2", Ana);
+        await scene.Db.SaveChangesAsync();
+
+        Assert.Equal(70, await scene.Service.MarkReadMatchingAsync(scene.Marta.Id, "unread", scene.Type.NotificationTypeId));
+        Assert.Equal(1, (await scene.Service.SummaryAsync(scene.Marta.Id)).Unread);
+
+        Assert.Equal(70, await scene.Service.MarkDoneMatchingAsync(scene.Marta.Id, "pending", scene.Type.NotificationTypeId, "Lote"));
+        Assert.Equal(70, (await scene.Service.PageAsync(scene.Luis.Id, "done", null, 1, 50)).Total);
+        Assert.Equal(1, (await scene.Service.PageAsync(scene.Luis.Id, null, other.NotificationTypeId, 1, 50)).Total);
+        Assert.Equal(0, await scene.Service.MarkReadMatchingAsync(scene.Pedro.Id, null, null));
+    }
+
+    [Fact]
+    public async Task Mark_read_many_rejects_an_empty_selection()
+    {
+        var scene = Create();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => scene.Service.MarkReadManyAsync([], scene.Marta.Id));
+    }
 }

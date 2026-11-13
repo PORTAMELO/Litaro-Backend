@@ -10,7 +10,7 @@ public class StudyPlanService(AppDbContext db)
 
     public Task<List<StudyPlan>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
-        var query = db.StudyPlans.AsQueryable();
+        var query = db.StudyPlans.AsNoTracking().AsQueryable();
 
         if (filters is not null && filters.Count > 0)
             query = query.ApplyFilters(filters);

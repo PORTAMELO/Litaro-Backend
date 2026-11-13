@@ -11,7 +11,7 @@ public class CampusService(AppDbContext db)
 
     public Task<List<Campus>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
-        var query = db.Campuses.Where(c => c.Active).AsQueryable();
+        var query = db.Campuses.AsNoTracking().Where(c => c.Active).AsQueryable();
 
         if (filters is not null && filters.Count > 0)
             query = query.ApplyFilters(filters);

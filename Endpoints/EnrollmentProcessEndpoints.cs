@@ -53,6 +53,22 @@ public static class EnrollmentProcessEndpoints
             })
             .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Create);
 
+        group.MapPost("/pre-enrollments/restore", async (short yearId, ClaimsPrincipal user, PreEnrollmentService svc) =>
+            {
+                if (!int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+                    return Results.Unauthorized();
+
+                try
+                {
+                    return Results.Ok(await svc.RestoreLostAsync(yearId, userId));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            })
+            .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Update);
+
         group.MapPost("/pre-enrollments/{id}/respond", async (int id, RespondRequest request, PreEnrollmentService svc) =>
             {
                 try
