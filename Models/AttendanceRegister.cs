@@ -15,6 +15,7 @@ namespace Litaro.Models
     public static class EnrollmentStatuses
     {
         public const string Active = "ACTIVE";
+        public const string Withdrawn = "WITHDRAWN";
     }
 
     public class AttendanceSession

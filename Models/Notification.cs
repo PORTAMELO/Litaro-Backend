@@ -8,6 +8,9 @@ namespace Litaro.Models
         public const string SimatCupoDeclined = "SIMAT_CUPO_DECLINED";
         public const string SimatCupoLost = "SIMAT_CUPO_LOST";
         public const string SimatNotInSimat = "SIMAT_NOT_IN_SIMAT";
+        public const string SimatClassroomChange = "SIMAT_CLASSROOM_CHANGE";
+        public const string SimatCampusTransfer = "SIMAT_CAMPUS_TRANSFER";
+        public const string SimatWithdrawal = "SIMAT_WITHDRAWAL";
         public const string AttEvasion = "ATT_EVASION";
         public const string AttClassTardy = "ATT_CLASS_TARDY";
         public const string AttLateCommitment = "ATT_LATE_COMMITMENT";

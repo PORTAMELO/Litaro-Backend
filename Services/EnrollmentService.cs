@@ -18,25 +18,5 @@ namespace Litaro.Services
             await db.SaveChangesAsync();
             return enrollment;
         }
-
-        public async Task<bool> UpdateStatusAsync(int id, string status)
-        {
-            var enrollment = await db.Enrollments.FindAsync(id);
-            if (enrollment is null) return false;
-
-            enrollment.Status = status;
-            await db.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var enrollment = await db.Enrollments.FindAsync(id);
-            if (enrollment is null) return false;
-
-            db.Enrollments.Remove(enrollment);
-            await db.SaveChangesAsync();
-            return true;
-        }
     }
 }

@@ -752,6 +752,55 @@ namespace Litaro.Migrations
                     b.ToTable("Enrollment", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.EnrollmentEvent", b =>
+                {
+                    b.Property<int>("EnrollmentEventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EnrollmentEventId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FromClassroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int?>("ToClassroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EnrollmentEventId");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("FromClassroomId");
+
+                    b.HasIndex("ToClassroomId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EnrollmentEvent", "public");
+                });
+
             modelBuilder.Entity("Litaro.Models.EnrollmentPeriod", b =>
                 {
                     b.Property<int>("EnrollmentPeriodId")
@@ -2325,6 +2374,40 @@ namespace Litaro.Migrations
                     b.Navigation("Classroom");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Litaro.Models.EnrollmentEvent", b =>
+                {
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Classroom", "FromClassroom")
+                        .WithMany()
+                        .HasForeignKey("FromClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Classroom", "ToClassroom")
+                        .WithMany()
+                        .HasForeignKey("ToClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("FromClassroom");
+
+                    b.Navigation("ToClassroom");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Litaro.Models.EnrollmentPeriod", b =>
