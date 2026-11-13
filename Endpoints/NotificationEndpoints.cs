@@ -6,15 +6,19 @@ namespace Litaro.Endpoints;
 
 public static class NotificationEndpoints
 {
-    public record MarkDoneRequest(List<int>? Ids, string? Note);
+    public record NotificationFilter(string? State, int? TypeId);
+
+    public record MarkDoneRequest(List<int>? Ids, string? Note, NotificationFilter? Matching = null);
+
+    public record MarkReadRequest(List<int>? Ids, NotificationFilter? Matching = null);
 
     public static void MapNotificationEndpoints(this WebApplication app)
     {
         var inbox = app.MapGroup("/notifications");
 
-        inbox.MapGet("", async (string? state, int? typeId, ClaimsPrincipal user, NotificationService svc) =>
+        inbox.MapGet("", async (string? state, int? typeId, int? page, int? pageSize, ClaimsPrincipal user, NotificationService svc) =>
                 CurrentUserId(user) is { } userId
-                    ? Results.Ok(await svc.ListAsync(userId, state, typeId))
+                    ? Results.Ok(await svc.PageAsync(userId, state, typeId, page ?? 1, pageSize ?? 50))
                     : Results.Unauthorized())
             .RequirePermission(ProcessKeys.Notification, PermissionFlags.Read);
 
@@ -38,6 +42,25 @@ public static class NotificationEndpoints
             })
             .RequirePermission(ProcessKeys.Notification, PermissionFlags.Read);
 
+        inbox.MapPost("/read", async (MarkReadRequest request, ClaimsPrincipal user, NotificationService svc) =>
+            {
+                if (CurrentUserId(user) is not { } userId)
+                    return Results.Unauthorized();
+
+                try
+                {
+                    var read = request.Matching is { } matching
+                        ? await svc.MarkReadMatchingAsync(userId, matching.State, matching.TypeId)
+                        : await svc.MarkReadManyAsync(request.Ids ?? [], userId);
+                    return Results.Ok(new { read });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            })
+            .RequirePermission(ProcessKeys.Notification, PermissionFlags.Read);
+
         inbox.MapPost("/done", async (MarkDoneRequest request, ClaimsPrincipal user, NotificationService svc) =>
             {
                 if (CurrentUserId(user) is not { } userId)
@@ -45,7 +68,9 @@ public static class NotificationEndpoints
 
                 try
                 {
-                    var done = await svc.MarkDoneAsync(request.Ids ?? [], request.Note, userId);
+                    var done = request.Matching is { } matching
+                        ? await svc.MarkDoneMatchingAsync(userId, matching.State, matching.TypeId, request.Note)
+                        : await svc.MarkDoneAsync(request.Ids ?? [], request.Note, userId);
                     return Results.Ok(new { done });
                 }
                 catch (InvalidOperationException ex)

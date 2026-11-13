@@ -10,7 +10,8 @@ namespace Litaro.Endpoints
             app.MapGet(
                 "/webcontents/admin",
                 async (WebContentService svc) =>
-                    Results.Ok(await svc.GetAllForAdminAsync())).AllowAnonymous();
+                    Results.Ok(await svc.GetAllForAdminAsync()))
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Read);
 
             app.MapGet("/webcontents", async (WebContentService svc) =>
                 Results.Ok(await svc.GetAllAsync())).AllowAnonymous();
@@ -19,6 +20,9 @@ namespace Litaro.Endpoints
                 await svc.GetByIdAsync(id) is WebContent content
                     ? Results.Ok(content)
                     : Results.NotFound()).AllowAnonymous();
+
+            app.MapGet("/webcontents/page/{pageName}", async (string pageName, WebContentService svc) =>
+                Results.Ok(await svc.GetPageAsync(pageName))).AllowAnonymous();
 
             app.MapGet(
                 "/webcontents/{pageName}/{sectionName}/{contentKey}",
@@ -61,7 +65,8 @@ namespace Litaro.Endpoints
 
                         _ => Results.BadRequest()
                     };
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Create);
 
             app.MapPut("/webcontents/{id}",
                 async (
@@ -77,7 +82,8 @@ namespace Litaro.Endpoints
                     return await svc.UpdateAsync(id, updated)
                         ? Results.NoContent()
                         : Results.NotFound();
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Update);
 
             app.MapPatch("/webcontents/{id}/deactivate",
                 async (int id, WebContentService svc) =>
@@ -106,7 +112,8 @@ namespace Litaro.Endpoints
 
                         _ => Results.BadRequest()
                     };
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Update);
 
             app.MapPatch("/webcontents/{id}/activate",
                 async (int id, WebContentService svc) =>
@@ -135,7 +142,8 @@ namespace Litaro.Endpoints
 
                         _ => Results.BadRequest()
                     };
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Update);
 
             app.MapDelete("/webcontents/{id}",
                 async (int id, WebContentService svc) =>
@@ -164,7 +172,8 @@ namespace Litaro.Endpoints
 
                         _ => Results.BadRequest()
                     };
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Delete);
         }
     }
 }

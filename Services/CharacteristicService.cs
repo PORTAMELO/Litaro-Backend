@@ -12,7 +12,7 @@ public class CharacteristicService(AppDbContext db)
 
     public Task<List<Characteristic>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
-        var query = db.Characteristics.AsQueryable();
+        var query = db.Characteristics.AsNoTracking().AsQueryable();
 
         if (filters is not null && filters.Count > 0)
             query = query.ApplyFilters(filters);

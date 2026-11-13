@@ -41,7 +41,8 @@ namespace Litaro.Endpoints
                     return Results.Created(
                         $"/webcontentconfigurations/{created.WebContentConfigurationId}",
                         created);
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Create);
 
             app.MapPut("/webcontentconfigurations/{id}",
                 async (
@@ -52,7 +53,8 @@ namespace Litaro.Endpoints
                     return await svc.UpdateAsync(id, configuration)
                         ? Results.NoContent()
                         : Results.NotFound();
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Update);
 
             app.MapPatch("/webcontentconfigurations/{id}/deactivate",
                 async (int id, WebContentConfigurationService svc) =>
@@ -60,7 +62,8 @@ namespace Litaro.Endpoints
                     return await svc.DeactivateAsync(id)
                         ? Results.NoContent()
                         : Results.NotFound();
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Update);
 
             app.MapPatch("/webcontentconfigurations/{id}/activate",
                 async (int id, WebContentConfigurationService svc) =>
@@ -68,7 +71,8 @@ namespace Litaro.Endpoints
                     return await svc.ActivateAsync(id)
                         ? Results.NoContent()
                         : Results.NotFound();
-                });
+                })
+                .RequirePermission(ProcessKeys.WebpageModule, PermissionFlags.Update);
         }
     }
 }

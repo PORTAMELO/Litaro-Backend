@@ -11,12 +11,15 @@ namespace Litaro.Models
         public const string SimatClassroomChange = "SIMAT_CLASSROOM_CHANGE";
         public const string SimatCampusTransfer = "SIMAT_CAMPUS_TRANSFER";
         public const string SimatWithdrawal = "SIMAT_WITHDRAWAL";
+        public const string SimatCupoRestored = "SIMAT_CUPO_RESTORED";
         public const string AttEvasion = "ATT_EVASION";
         public const string AttClassTardy = "ATT_CLASS_TARDY";
         public const string AttLateCommitment = "ATT_LATE_COMMITMENT";
         public const string AttLateCitation = "ATT_LATE_CITATION";
         public const string AttWeekAbsence = "ATT_WEEK_ABSENCE";
         public const string AttPeriodAbsence = "ATT_PERIOD_ABSENCE";
+        public const string PlannerOverdue = "PLANNER_OVERDUE";
+        public const string PlannerRequest = "PLANNER_REQUEST";
     }
 
     public static class NotificationStatuses

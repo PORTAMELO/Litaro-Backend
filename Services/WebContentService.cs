@@ -4,8 +4,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services;
 
-public class WebContentService(AppDbContext db)
+public class WebContentService(AppDbContext db, WebContentCache? cache = null)
 {
+    public async Task<IReadOnlyList<WebContent>> GetPageAsync(string pageName)
+    {
+        if (cache?.Get(pageName) is { } cached)
+            return cached;
+
+        var version = cache?.Version ?? 0;
+
+        var contents = await db.WebContents
+            .AsNoTracking()
+            .Where(x => x.PageName == pageName && x.Active)
+            .OrderBy(x => x.SectionName)
+            .ThenBy(x => x.ContentKey)
+            .ThenBy(x => x.DisplayOrder)
+            .ToListAsync();
+
+        if (contents.Count > 0)
+            cache?.Set(pageName, contents, version);
+
+        return contents;
+    }
 
     public Task<List<WebContent>> GetAllForAdminAsync()
     {
@@ -84,6 +104,7 @@ public class WebContentService(AppDbContext db)
         db.WebContents.Add(content);
 
         await db.SaveChangesAsync();
+        cache?.Invalidate();
 
         return (WebContentOperationResult.Success, content);
     }
@@ -99,6 +120,7 @@ public class WebContentService(AppDbContext db)
         content.UpdateDate = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        cache?.Invalidate();
         return true;
     }
 
@@ -137,6 +159,7 @@ public class WebContentService(AppDbContext db)
         content.UpdateDate = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        cache?.Invalidate();
 
         return WebContentOperationResult.Success;
     }
@@ -177,6 +200,7 @@ public class WebContentService(AppDbContext db)
         content.UpdateDate = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        cache?.Invalidate();
 
         return WebContentOperationResult.Success;
     }
@@ -225,6 +249,7 @@ public class WebContentService(AppDbContext db)
         }
 
         await db.SaveChangesAsync();
+        cache?.Invalidate();
 
         return WebContentOperationResult.Success;
     }

@@ -158,6 +158,52 @@ namespace Litaro.Migrations
                     b.ToTable("AcademicYear", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.ActivityScore", b =>
+                {
+                    b.Property<int>("ActivityScoreId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ActivityScoreId"));
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GradeActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RecordedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(3,1)");
+
+                    b.HasKey("ActivityScoreId");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("RecordedById");
+
+                    b.HasIndex("UpdatedById");
+
+                    b.HasIndex("GradeActivityId", "EnrollmentId")
+                        .IsUnique();
+
+                    b.ToTable("ActivityScore", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_ActivityScore_Value", "\"Value\" BETWEEN 10 AND 50");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.AdmissionRequest", b =>
                 {
                     b.Property<int>("AdmissionRequestId")
@@ -705,6 +751,86 @@ namespace Litaro.Migrations
                     b.ToTable("ColumnConfigurations", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.Document", b =>
+                {
+                    b.Property<int>("DocumentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("DocumentId"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EntityTable")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("ReplacedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReplacedById")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UploadedById")
+                        .HasColumnType("integer");
+
+                    b.Property<short?>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("DocumentId");
+
+                    b.HasIndex("ReplacedById");
+
+                    b.HasIndex("StoragePath")
+                        .IsUnique();
+
+                    b.HasIndex("UploadedById");
+
+                    b.HasIndex("YearId");
+
+                    b.HasIndex("DocumentType", "EntityTable", "EntityId")
+                        .IsUnique()
+                        .HasFilter("\"IsCurrent\"");
+
+                    b.ToTable("Document", "public");
+                });
+
             modelBuilder.Entity("Litaro.Models.Enrollment", b =>
                 {
                     b.Property<int>("EnrollmentId")
@@ -872,6 +998,65 @@ namespace Litaro.Migrations
                     b.ToTable("Grade", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.GradeActivity", b =>
+                {
+                    b.Property<int>("GradeActivityId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("GradeActivityId"));
+
+                    b.Property<string>("Competencies")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Component")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GradingSchemeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<decimal?>("Weight")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.HasKey("GradeActivityId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("GradingSchemeId");
+
+                    b.HasIndex("GradingSchemeId", "Component")
+                        .IsUnique()
+                        .HasFilter("\"Component\" <> 'HETERO'");
+
+                    b.ToTable("GradeActivity", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_GradeActivity_Component", "\"Component\" IN ('HETERO','SABER','SELF','PEER')");
+
+                            t.HasCheckConstraint("CK_GradeActivity_Weight", "\"Weight\" IS NULL OR (\"Weight\" > 0 AND \"Weight\" <= 100)");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.GradeScore", b =>
                 {
                     b.Property<int>("GradeScoreId")
@@ -911,6 +1096,98 @@ namespace Litaro.Migrations
                         .IsUnique();
 
                     b.ToTable("GradeScore", "public");
+                });
+
+            modelBuilder.Entity("Litaro.Models.GradingDeadline", b =>
+                {
+                    b.Property<int>("GradingDeadlineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("GradingDeadlineId"));
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<short?>("PeriodId")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("YearId")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("GradingDeadlineId");
+
+                    b.HasIndex("PeriodId");
+
+                    b.HasIndex("UpdatedById");
+
+                    b.HasIndex("YearId", "Kind", "PeriodId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("YearId", "Kind", "PeriodId"), false);
+
+                    b.ToTable("GradingDeadline", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_GradingDeadline_Kind", "\"Kind\" IN ('PLANNER','DESIGN_LOCK')");
+
+                            t.HasCheckConstraint("CK_GradingDeadline_Period", "(\"Kind\" = 'PLANNER') = (\"PeriodId\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.GradingScheme", b =>
+                {
+                    b.Property<int>("GradingSchemeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("GradingSchemeId"));
+
+                    b.Property<int>("ClassroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<short>("PeriodId")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.HasKey("GradingSchemeId");
+
+                    b.HasIndex("PeriodId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("UpdatedById");
+
+                    b.HasIndex("ClassroomId", "SubjectId", "PeriodId")
+                        .IsUnique();
+
+                    b.ToTable("GradingScheme", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_GradingScheme_Mode", "\"Mode\" IN ('WEIGHTED','AVERAGE')");
+                        });
                 });
 
             modelBuilder.Entity("Litaro.Models.JobRun", b =>
@@ -2099,6 +2376,40 @@ namespace Litaro.Migrations
                     b.Navigation("AcademicYear");
                 });
 
+            modelBuilder.Entity("Litaro.Models.ActivityScore", b =>
+                {
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.GradeActivity", "GradeActivity")
+                        .WithMany("Scores")
+                        .HasForeignKey("GradeActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("GradeActivity");
+
+                    b.Navigation("RecordedBy");
+
+                    b.Navigation("UpdatedBy");
+                });
+
             modelBuilder.Entity("Litaro.Models.AdmissionRequest", b =>
                 {
                     b.HasOne("Litaro.Models.User", "CreatedBy")
@@ -2349,6 +2660,31 @@ namespace Litaro.Migrations
                     b.Navigation("Characteristic");
                 });
 
+            modelBuilder.Entity("Litaro.Models.Document", b =>
+                {
+                    b.HasOne("Litaro.Models.User", "ReplacedBy")
+                        .WithMany()
+                        .HasForeignKey("ReplacedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("ReplacedBy");
+
+                    b.Navigation("UploadedBy");
+                });
+
             modelBuilder.Entity("Litaro.Models.Enrollment", b =>
                 {
                     b.HasOne("Litaro.Models.Classroom", "Classroom")
@@ -2421,6 +2757,25 @@ namespace Litaro.Migrations
                     b.Navigation("AcademicYear");
                 });
 
+            modelBuilder.Entity("Litaro.Models.GradeActivity", b =>
+                {
+                    b.HasOne("Litaro.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.GradingScheme", "GradingScheme")
+                        .WithMany("Activities")
+                        .HasForeignKey("GradingSchemeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("GradingScheme");
+                });
+
             modelBuilder.Entity("Litaro.Models.GradeScore", b =>
                 {
                     b.HasOne("Litaro.Models.Enrollment", "Enrollment")
@@ -2446,6 +2801,67 @@ namespace Litaro.Migrations
                     b.Navigation("Enrollment");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Litaro.Models.GradingDeadline", b =>
+                {
+                    b.HasOne("Litaro.Models.AcademicPeriod", "AcademicPeriod")
+                        .WithMany()
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("YearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicPeriod");
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("UpdatedBy");
+                });
+
+            modelBuilder.Entity("Litaro.Models.GradingScheme", b =>
+                {
+                    b.HasOne("Litaro.Models.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.AcademicPeriod", "AcademicPeriod")
+                        .WithMany()
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicPeriod");
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("UpdatedBy");
                 });
 
             modelBuilder.Entity("Litaro.Models.LateArrival", b =>
@@ -2876,6 +3292,16 @@ namespace Litaro.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Litaro.Models.GradeActivity", b =>
+                {
+                    b.Navigation("Scores");
+                });
+
+            modelBuilder.Entity("Litaro.Models.GradingScheme", b =>
+                {
+                    b.Navigation("Activities");
                 });
 #pragma warning restore 612, 618
         }

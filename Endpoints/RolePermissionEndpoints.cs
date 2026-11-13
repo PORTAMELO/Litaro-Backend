@@ -1,5 +1,6 @@
 using Litaro.Data;
 using Litaro.Models;
+using Litaro.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Endpoints;
@@ -25,7 +26,7 @@ public static class RolePermissionEndpoints
             return Results.Ok(rows);
         }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
-        app.MapPut("/role-permissions", async (SaveRolePermissionRequest request, AppDbContext db) =>
+        app.MapPut("/role-permissions", async (SaveRolePermissionRequest request, AppDbContext db, PermissionCache cache) =>
         {
             if (!PermissionCatalog.IsManaged(request.TableName))
                 return Results.BadRequest("Tabla no administrable.");
@@ -46,6 +47,7 @@ public static class RolePermissionEndpoints
             row.View = string.IsNullOrWhiteSpace(request.View) ? null : request.View.Trim();
 
             await db.SaveChangesAsync();
+            cache.Invalidate();
 
             return Results.Ok(new RolePermissionRow(row.TableName, row.Permissions, row.View, PermissionCatalog.KindOf(row.TableName)));
         }).RequireAuthorization(policy => policy.RequireRole("Administrador"));

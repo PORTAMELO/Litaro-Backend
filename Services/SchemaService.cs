@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Litaro.Data;
 using Litaro.Models;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,8 @@ public record SchemaData(
 
 public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
 {
+    private static readonly ConcurrentDictionary<string, List<RawColumn>> ColumnsCache = new(StringComparer.Ordinal);
+
     public static readonly HashSet<string> AllowedTables = new()
     {
         "AcademicAssignment", "AcademicPeriod", "AcademicYear", "Attendance",
@@ -46,6 +49,7 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
     private static readonly Dictionary<string, HashSet<string>> HiddenColumns = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Role"] = new(StringComparer.OrdinalIgnoreCase) { "NormalizedName", "ConcurrencyStamp" },
+        ["User"] = new(ApiJson.HiddenUserProperties, StringComparer.OrdinalIgnoreCase),
     };
 
     private static string ResolvePhysicalTableName(string tableName) =>
@@ -122,7 +126,9 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
     {
         var physicalTableName = ResolvePhysicalTableName(tableName);
 
-        var columns = await db.Database.SqlQuery<RawColumn>($@"
+        if (!ColumnsCache.TryGetValue(physicalTableName, out var cached))
+        {
+            cached = await db.Database.SqlQuery<RawColumn>($@"
         SELECT
             column_name AS ""ColumnName"",
             data_type AS ""DataType"",
@@ -135,6 +141,11 @@ public class SchemaService(AppDbContext db, ForeignKeyResolverService fkSvc)
         AND table_name = {physicalTableName}
         ORDER BY ordinal_position;")
         .ToListAsync();
+
+            ColumnsCache[physicalTableName] = cached;
+        }
+
+        var columns = new List<RawColumn>(cached);
 
         if (HiddenColumns.TryGetValue(tableName, out var hidden))
             columns = columns.Where(c => !hidden.Contains(c.ColumnName)).ToList();

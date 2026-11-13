@@ -15,13 +15,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        DatabaseConnections.WithPoolLimit(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            DatabaseConnections.DefaultMaxPoolSize),
         npgsqlOptions =>
         {
             npgsqlOptions.CommandTimeout(90); //Segundos
         }
     );
 });
+
+builder.Services.ConfigureHttpJsonOptions(options => ApiJson.Configure(options.SerializerOptions));
 
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
@@ -113,12 +117,14 @@ builder.Services.AddScoped<GradeScoreService>();
 builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<StudentLogService>();
 builder.Services.AddScoped<WebContentConfigurationService>();
+builder.Services.AddSingleton<WebContentCache>();
 builder.Services.AddScoped<WebContentService>();
 builder.Services.AddScoped<SchemaService>();
 builder.Services.AddScoped<ColumnConfigurationService>();
 builder.Services.AddScoped<ForeignKeyResolverService>();
 builder.Services.AddScoped<CharacteristicService>();
 builder.Services.AddScoped<LookupService>();
+builder.Services.AddSingleton<PermissionCache>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<SimatImportService>();
 builder.Services.AddScoped<EnrollmentPeriodService>();
@@ -135,6 +141,12 @@ builder.Services.AddScoped<AttendanceExcuseService>();
 builder.Services.AddScoped<AttendanceRollService>();
 builder.Services.AddScoped<AttendanceNightlyService>();
 builder.Services.AddScoped<AttendanceOptionsService>();
+builder.Services.Configure<SupabaseStorageOptions>(builder.Configuration.GetSection("SupabaseStorage"));
+builder.Services.AddHttpClient<IDocumentStorage, SupabaseStorageClient>();
+builder.Services.AddScoped<DocumentService>();
+builder.Services.AddScoped<GradingDeadlineService>();
+builder.Services.AddScoped<GradebookService>();
+builder.Services.AddScoped<StudyPlannerService>();
 builder.Services.AddHostedService<AttendanceNightlyWorker>();
 
 var app = builder.Build();
@@ -284,6 +296,7 @@ app.MapStudentMovementEndpoints();
 app.MapAccountEndpoints();
 app.MapNotificationEndpoints();
 app.MapAttendanceRegisterEndpoints();
+app.MapGradingEndpoints();
 
 app.Run();
 

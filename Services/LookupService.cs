@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Litaro.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,8 @@ public record LookupOption(string Id, string Label);
 
 public class LookupService(AppDbContext db, ForeignKeyResolverService fkSvc)
 {
+    private static readonly ConcurrentDictionary<string, string?> PrimaryKeyCache = new(StringComparer.Ordinal);
+
     public async Task<List<LookupOption>?> GetOptionsAsync(string tableName)
     {
         if (!SchemaService.AllowedTables.Contains(tableName))
@@ -151,7 +154,10 @@ public class LookupService(AppDbContext db, ForeignKeyResolverService fkSvc)
 
     private async Task<string?> GetPrimaryKeyColumnAsync(string tableName)
     {
-        return await db.Database.SqlQuery<string>($@"
+        if (PrimaryKeyCache.TryGetValue(tableName, out var cached))
+            return cached;
+
+        var primaryKey = await db.Database.SqlQuery<string>($@"
             SELECT kcu.column_name AS ""Value""
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu
@@ -161,5 +167,8 @@ public class LookupService(AppDbContext db, ForeignKeyResolverService fkSvc)
                 AND tc.table_name = {tableName}
             LIMIT 1")
             .FirstOrDefaultAsync();
+
+        PrimaryKeyCache[tableName] = primaryKey;
+        return primaryKey;
     }
 }

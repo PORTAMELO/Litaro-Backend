@@ -26,9 +26,74 @@ public record GeneratePreEnrollmentsResult(
     int AlreadyEnrolled,
     int WithoutNextGrade);
 
+public record RestoreLostResult(int Restored, int SimatReverts);
+
 public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService periods, NotificationService notifications)
 {
     private const string ActiveEnrollment = "ACTIVE";
+    private const string RestoredNote = "Cupo restablecido al corregir el plazo de prematrícula.";
+
+    public async Task<RestoreLostResult> RestoreLostAsync(short yearId, int userId)
+    {
+        var period = await periods.FindAsync(yearId);
+
+        if (period is null || EnrollmentPeriodService.Today() > period.PreEnrollmentEnd)
+            throw new InvalidOperationException("Amplíe primero la fecha final de prematrícula.");
+
+        var lost = await db.PreEnrollments
+            .Include(p => p.Student).ThenInclude(s => s.User)
+            .Where(p => p.YearId == yearId && p.Status == PreEnrollmentStatuses.Lost)
+            .ToListAsync();
+
+        if (lost.Count == 0)
+            return new RestoreLostResult(0, 0);
+
+        var studentIds = lost.Select(p => p.StudentId).ToList();
+        var lostNotices = await db.Notifications
+            .Where(n =>
+                n.NotificationType.Code == NotificationCodes.SimatCupoLost &&
+                n.YearId == yearId &&
+                n.StudentId != null &&
+                studentIds.Contains(n.StudentId.Value))
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        var reverts = 0;
+
+        foreach (var item in lost)
+        {
+            item.Status = PreEnrollmentStatuses.Reserved;
+            item.ResponseNote = null;
+            item.RespondedAt = null;
+
+            var notices = lostNotices.Where(n => n.StudentId == item.StudentId).ToList();
+
+            foreach (var notice in notices.Where(n => n.Status == NotificationStatuses.Pending))
+            {
+                notice.Status = NotificationStatuses.Done;
+                notice.DoneAt = now;
+                notice.DoneById = userId;
+                notice.DoneNote = RestoredNote;
+            }
+
+            if (notices.Any(n => n.Status == NotificationStatuses.Done && n.DoneNote != RestoredNote))
+            {
+                await notifications.QueueAsync(
+                    NotificationCodes.SimatCupoRestored,
+                    new Dictionary<string, string>
+                    {
+                        ["estudiante"] = FullName(item.Student.User),
+                        ["documento"] = item.Student.User.DocumentNumber,
+                        ["anio"] = yearId.ToString(),
+                    },
+                    new NotificationTarget(StudentId: item.StudentId, YearId: yearId));
+                reverts++;
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return new RestoreLostResult(lost.Count, reverts);
+    }
 
     public async Task<GeneratePreEnrollmentsResult> GenerateAsync(short yearId)
     {
@@ -193,6 +258,10 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
             return;
 
         var deadline = period.PreEnrollmentEnd.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        var stamp = EnrollmentPeriodService.Today().ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        string KeyOf(PreEnrollment item) => $"{NotificationCodes.SimatCupoLost}:{item.PreEnrollmentId}:{stamp}";
+
+        await notifications.PreloadDedupKeysAsync(overdue.Select(KeyOf));
 
         foreach (var item in overdue)
         {
@@ -208,10 +277,17 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
                     ["anio"] = yearId.ToString(),
                     ["fecha"] = deadline,
                 },
-                new NotificationTarget(StudentId: item.StudentId, YearId: yearId));
+                new NotificationTarget(StudentId: item.StudentId, YearId: yearId, DedupKey: KeyOf(item)));
         }
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+        }
     }
 
     private static string FullName(User user) => $"{user.FirstName} {user.LastName}".Trim();

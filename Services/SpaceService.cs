@@ -10,7 +10,7 @@ public class SpaceService(AppDbContext db)
 
     public Task<List<Space>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
-        var query = db.Spaces.Where(s => s.Active).AsQueryable();
+        var query = db.Spaces.AsNoTracking().Where(s => s.Active).AsQueryable();
 
         if (filters is not null && filters.Count > 0)
             query = query.ApplyFilters(filters);
