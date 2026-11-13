@@ -30,7 +30,7 @@ namespace Litaro.Services
 
         public Task<List<User>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var query = db.Users.Where(u => u.Active).AsQueryable();
+            var query = db.Users.AsNoTracking().Where(u => u.Active).AsQueryable();
 
             if (filters is not null && filters.Count > 0)
                 query = query.ApplyFilters(filters);

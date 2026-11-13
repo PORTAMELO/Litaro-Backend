@@ -6,7 +6,7 @@ namespace Litaro.Services;
 
 public record PermissionDto(string TableName, int Permissions, string? View);
 
-public class PermissionService(AppDbContext db)
+public class PermissionService(AppDbContext db, PermissionCache? cache = null)
 {
     public async Task<List<PermissionDto>> GetForRolesAsync(IEnumerable<string> roleNames)
     {
@@ -14,10 +14,15 @@ public class PermissionService(AppDbContext db)
         if (names.Count == 0)
             return [];
 
-        var rows = await db.RolePermissions
-            .Where(rp => names.Contains(rp.Role.Name!))
-            .Select(rp => new { rp.TableName, rp.Permissions, rp.View })
-            .ToListAsync();
+        var rows = cache is null
+            ? await db.RolePermissions
+                .Where(rp => names.Contains(rp.Role.Name!))
+                .Select(rp => new { rp.TableName, rp.Permissions, rp.View })
+                .ToListAsync()
+            : (await cache.GetAsync(db))
+                .Where(rp => names.Contains(rp.RoleName))
+                .Select(rp => new { rp.TableName, rp.Permissions, rp.View })
+                .ToList();
 
         return rows
             .GroupBy(r => r.TableName)
@@ -35,10 +40,15 @@ public class PermissionService(AppDbContext db)
         if (names.Count == 0)
             return false;
 
-        var values = await db.RolePermissions
-            .Where(rp => rp.TableName == tableName && names.Contains(rp.Role.Name!))
-            .Select(rp => rp.Permissions)
-            .ToListAsync();
+        var values = cache is null
+            ? await db.RolePermissions
+                .Where(rp => rp.TableName == tableName && names.Contains(rp.Role.Name!))
+                .Select(rp => rp.Permissions)
+                .ToListAsync()
+            : (await cache.GetAsync(db))
+                .Where(rp => rp.TableName == tableName && names.Contains(rp.RoleName))
+                .Select(rp => rp.Permissions)
+                .ToList();
 
         return values.Any(v => (v & (int)flag) == (int)flag);
     }

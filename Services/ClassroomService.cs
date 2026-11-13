@@ -10,7 +10,7 @@ namespace Litaro.Services
 
         public Task<List<Classroom>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var query = db.Classrooms.Where(c => c.Active).AsQueryable();
+            var query = db.Classrooms.AsNoTracking().Where(c => c.Active).AsQueryable();
 
             if (filters is not null && filters.Count > 0)
                 query = query.ApplyFilters(filters);

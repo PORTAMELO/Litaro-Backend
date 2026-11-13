@@ -21,6 +21,11 @@ public static class ProcessKeys
     public const string LateArrival = "LateArrival";
     public const string AttendanceExcuse = "AttendanceExcuse";
     public const string AttendanceSettings = "AttendanceSettings";
+    public const string GradeBook = "GradeBook";
+    public const string GradeDesign = "GradeDesign";
+    public const string StudyPlanner = "StudyPlanner";
+    public const string StudyPlannerPanel = "StudyPlannerPanel";
+    public const string GradeSettings = "GradeSettings";
 }
 
 public static class PermissionCatalog
@@ -65,6 +70,11 @@ public static class PermissionCatalog
         ProcessKeys.LateArrival,
         ProcessKeys.AttendanceExcuse,
         ProcessKeys.AttendanceSettings,
+        ProcessKeys.GradeBook,
+        ProcessKeys.GradeDesign,
+        ProcessKeys.StudyPlanner,
+        ProcessKeys.StudyPlannerPanel,
+        ProcessKeys.GradeSettings,
     ];
 
     public static bool IsManaged(string key) => Tables.Contains(key) || Processes.Contains(key);

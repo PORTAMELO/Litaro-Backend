@@ -40,7 +40,7 @@ namespace Litaro.Services
 
         public Task<List<Schedule>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var query = db.Schedules.AsQueryable();
+            var query = db.Schedules.AsNoTracking().AsQueryable();
 
             if (filters is not null && filters.Count > 0)
                 query = query.ApplyFilters(filters);

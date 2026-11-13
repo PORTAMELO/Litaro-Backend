@@ -15,7 +15,7 @@ public class PermissionCatalogTests
     [Fact]
     public void Processes_lists_every_process_key()
     {
-        Assert.Equal(19, PermissionCatalog.Processes.Count);
+        Assert.Equal(24, PermissionCatalog.Processes.Count);
         Assert.Contains(ProcessKeys.EnrollmentProcess, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.AdmissionDecision, PermissionCatalog.Processes);
     }
@@ -48,4 +48,10 @@ public class PermissionCatalogTests
     [Fact]
     public void ResolveActiveRoles_denies_a_role_the_user_does_not_have()
         => Assert.Empty(PermissionCatalog.ResolveActiveRoles(new[] { "Profesor" }, "Administrador"));
+
+    [Fact]
+    public void Grading_keys_are_processes()
+        => Assert.All(
+            new[] { "GradeBook", "GradeDesign", "StudyPlanner", "StudyPlannerPanel", "GradeSettings" },
+            key => Assert.Equal(PermissionCatalog.ProcessKind, PermissionCatalog.KindOf(key)));
 }

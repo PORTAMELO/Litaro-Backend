@@ -11,7 +11,7 @@ namespace Litaro.Services
 
         public Task<List<AcademicPeriod>> GetAllAsync(IDictionary<string, string>? filters = null)
         {
-            var query = db.AcademicPeriods.Include(p => p.AcademicYear).AsQueryable();
+            var query = db.AcademicPeriods.AsNoTracking().Include(p => p.AcademicYear).AsQueryable();
 
             if (filters is not null && filters.Count > 0)
                 query = query.ApplyFilters(filters);

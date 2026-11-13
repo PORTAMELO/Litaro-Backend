@@ -95,6 +95,16 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<JobRun> JobRuns => Set<JobRun>();
 
+    public DbSet<GradingScheme> GradingSchemes => Set<GradingScheme>();
+
+    public DbSet<GradeActivity> GradeActivities => Set<GradeActivity>();
+
+    public DbSet<ActivityScore> ActivityScores => Set<ActivityScore>();
+
+    public DbSet<GradingDeadline> GradingDeadlines => Set<GradingDeadline>();
+
+    public DbSet<Document> Documents => Set<Document>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -942,6 +952,136 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.ToTable("JobRun");
             entity.HasKey(e => e.JobName);
             entity.Property(e => e.JobName).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<GradingScheme>(entity =>
+        {
+            entity.ToTable("GradingScheme", t =>
+                t.HasCheckConstraint("CK_GradingScheme_Mode", "\"Mode\" IN ('WEIGHTED','AVERAGE')"));
+            entity.HasKey(e => e.GradingSchemeId);
+            entity.Property(e => e.Mode).HasMaxLength(10);
+            entity.HasIndex(e => new { e.ClassroomId, e.SubjectId, e.PeriodId }).IsUnique();
+            entity.HasOne(e => e.Classroom)
+                .WithMany()
+                .HasForeignKey(e => e.ClassroomId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Subject)
+                .WithMany()
+                .HasForeignKey(e => e.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.AcademicPeriod)
+                .WithMany()
+                .HasForeignKey(e => e.PeriodId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.UpdatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.UpdatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GradeActivity>(entity =>
+        {
+            entity.ToTable("GradeActivity", t =>
+            {
+                t.HasCheckConstraint("CK_GradeActivity_Component", "\"Component\" IN ('HETERO','SABER','SELF','PEER')");
+                t.HasCheckConstraint("CK_GradeActivity_Weight", "\"Weight\" IS NULL OR (\"Weight\" > 0 AND \"Weight\" <= 100)");
+            });
+            entity.HasKey(e => e.GradeActivityId);
+            entity.Property(e => e.Component).HasMaxLength(10);
+            entity.Property(e => e.Name).HasMaxLength(150);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Competencies).HasMaxLength(1000);
+            entity.Property(e => e.Weight).HasColumnType("numeric(5,2)");
+            entity.HasIndex(e => e.GradingSchemeId);
+            entity.HasIndex(e => new { e.GradingSchemeId, e.Component })
+                .IsUnique()
+                .HasFilter("\"Component\" <> 'HETERO'");
+            entity.HasOne(e => e.GradingScheme)
+                .WithMany(s => s.Activities)
+                .HasForeignKey(e => e.GradingSchemeId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ActivityScore>(entity =>
+        {
+            entity.ToTable("ActivityScore", t =>
+                t.HasCheckConstraint("CK_ActivityScore_Value", "\"Value\" BETWEEN 10 AND 50"));
+            entity.HasKey(e => e.ActivityScoreId);
+            entity.Property(e => e.Value).HasColumnType("numeric(3,1)");
+            entity.HasIndex(e => new { e.GradeActivityId, e.EnrollmentId }).IsUnique();
+            entity.HasIndex(e => e.EnrollmentId);
+            entity.HasOne(e => e.GradeActivity)
+                .WithMany(a => a.Scores)
+                .HasForeignKey(e => e.GradeActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Enrollment)
+                .WithMany()
+                .HasForeignKey(e => e.EnrollmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RecordedBy)
+                .WithMany()
+                .HasForeignKey(e => e.RecordedById)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.UpdatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.UpdatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GradingDeadline>(entity =>
+        {
+            entity.ToTable("GradingDeadline", t =>
+            {
+                t.HasCheckConstraint("CK_GradingDeadline_Kind", "\"Kind\" IN ('PLANNER','DESIGN_LOCK')");
+                t.HasCheckConstraint("CK_GradingDeadline_Period", "(\"Kind\" = 'PLANNER') = (\"PeriodId\" IS NULL)");
+            });
+            entity.HasKey(e => e.GradingDeadlineId);
+            entity.Property(e => e.Kind).HasMaxLength(20);
+            entity.HasIndex(e => new { e.YearId, e.Kind, e.PeriodId }).IsUnique().AreNullsDistinct(false);
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.AcademicPeriod)
+                .WithMany()
+                .HasForeignKey(e => e.PeriodId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.UpdatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.UpdatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Document>(entity =>
+        {
+            entity.ToTable("Document");
+            entity.HasKey(e => e.DocumentId);
+            entity.Property(e => e.Module).HasMaxLength(40);
+            entity.Property(e => e.DocumentType).HasMaxLength(40);
+            entity.Property(e => e.EntityTable).HasMaxLength(50);
+            entity.Property(e => e.StoragePath).HasMaxLength(300);
+            entity.Property(e => e.FileName).HasMaxLength(200);
+            entity.Property(e => e.ContentType).HasMaxLength(100);
+            entity.HasIndex(e => e.StoragePath).IsUnique();
+            entity.HasIndex(e => new { e.DocumentType, e.EntityTable, e.EntityId })
+                .IsUnique()
+                .HasFilter("\"IsCurrent\"");
+            entity.HasOne(e => e.AcademicYear)
+                .WithMany()
+                .HasForeignKey(e => e.YearId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.UploadedBy)
+                .WithMany()
+                .HasForeignKey(e => e.UploadedById)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ReplacedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ReplacedById)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
