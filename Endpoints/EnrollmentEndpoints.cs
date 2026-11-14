@@ -20,19 +20,6 @@ namespace Litaro.Endpoints
                 var created = await svc.CreateAsync(enrollment);
                 return Results.Created($"/enrollments/{created.EnrollmentId}", created);
             });
-
-            app.MapPatch("/enrollments/{id}/status", async (int id, StatusRequest req, EnrollmentService svc) =>
-                await svc.UpdateStatusAsync(id, req.Status)
-                    ? Results.NoContent()
-                    : Results.NotFound());
-
-            app.MapDelete("/enrollments/{id}", async (int id, EnrollmentService svc) =>
-                await svc.DeleteAsync(id)
-                    ? Results.NoContent()
-                    : Results.NotFound());
         }
-
-        public record StatusRequest(string Status);
-
     }
 }

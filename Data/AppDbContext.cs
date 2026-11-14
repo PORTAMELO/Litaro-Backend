@@ -71,6 +71,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<AdmissionRequestEvent> AdmissionRequestEvents => Set<AdmissionRequestEvent>();
 
+    public DbSet<EnrollmentEvent> EnrollmentEvents => Set<EnrollmentEvent>();
+
     public DbSet<NotificationType> NotificationTypes => Set<NotificationType>();
 
     public DbSet<NotificationTypeRecipient> NotificationTypeRecipients => Set<NotificationTypeRecipient>();
@@ -687,6 +689,32 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasOne(e => e.AdmissionRequest)
                 .WithMany()
                 .HasForeignKey(e => e.AdmissionRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EnrollmentEvent>(entity =>
+        {
+            entity.ToTable("EnrollmentEvent");
+            entity.HasKey(e => e.EnrollmentEventId);
+            entity.Property(e => e.Type).HasMaxLength(12).IsRequired();
+            entity.Property(e => e.Reason).HasMaxLength(150);
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.HasIndex(e => e.EnrollmentId);
+            entity.HasOne(e => e.Enrollment)
+                .WithMany()
+                .HasForeignKey(e => e.EnrollmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.FromClassroom)
+                .WithMany()
+                .HasForeignKey(e => e.FromClassroomId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ToClassroom)
+                .WithMany()
+                .HasForeignKey(e => e.ToClassroomId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.User)
                 .WithMany()
