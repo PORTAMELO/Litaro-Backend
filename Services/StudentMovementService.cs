@@ -6,7 +6,7 @@ namespace Litaro.Services;
 
 public record MovementCampusDto(int CampusId, string Name);
 
-public record MovementClassroomDto(int ClassroomId, string Name, int GradeId, string GradeName, int CampusId);
+public record MovementClassroomDto(int ClassroomId, string Name, int GradeId, string GradeName, int CampusId, byte GradeOrder);
 
 public record MovementOptionsDto(
     List<MovementCampusDto> Campuses,
@@ -79,7 +79,7 @@ public class StudentMovementService(AppDbContext db, NotificationService notific
             .Where(c => c.Active && c.Campus.Active)
             .OrderBy(c => c.Grade.OrderNum)
             .ThenBy(c => c.Name)
-            .Select(c => new MovementClassroomDto(c.ClassroomId, c.Name, c.GradeId, c.Grade.Name, c.CampusId))
+            .Select(c => new MovementClassroomDto(c.ClassroomId, c.Name, c.GradeId, c.Grade.Name, c.CampusId, c.Grade.OrderNum))
             .ToListAsync();
 
         return new MovementOptionsDto(campuses, classrooms, await ReasonsAsync());
@@ -215,6 +215,66 @@ public class StudentMovementService(AppDbContext db, NotificationService notific
                 ["sede_origen"] = origin.Campus.Name,
                 ["destino"] = target.Name,
                 ["sede_destino"] = target.Campus.Name,
+            },
+            new NotificationTarget(StudentId: enrollment.StudentId, YearId: enrollment.YearId, CampusId: target.CampusId));
+
+        await db.SaveChangesAsync();
+        return movement.EnrollmentEventId;
+    }
+
+    public async Task<int> PromoteEarlyAsync(int enrollmentId, int toClassroomId, string? note, int userId, DateOnly today)
+    {
+        var enrollment = await LoadActiveAsync(enrollmentId);
+
+        var cleanNote = Clean(note);
+        if (cleanNote is null)
+            throw new InvalidOperationException(
+                "Escriba el acta o la decisión del Consejo Directivo que aprueba la promoción anticipada.");
+
+        var grades = await db.Grades.AsNoTracking().OrderBy(g => g.OrderNum).ToListAsync();
+        var currentGrade = grades.First(g => g.GradeId == enrollment.Classroom.GradeId);
+
+        if (!PromotionRules.AllowsEarlyPromotion(currentGrade.OrderNum))
+            throw new InvalidOperationException(
+                "La promoción anticipada no aplica en grado noveno ni en la media técnica (SIEE Art. 12).");
+
+        var firstPeriod = await db.AcademicPeriods
+            .AsNoTracking()
+            .Where(p => p.YearId == enrollment.YearId)
+            .OrderBy(p => p.PeriodNumber)
+            .FirstOrDefaultAsync();
+
+        if (firstPeriod is null || !AttendancePeriods.Contains(firstPeriod, today))
+            throw new InvalidOperationException(
+                "La promoción anticipada solo se realiza durante el primer periodo académico (SIEE Art. 12).");
+
+        var nextGrade = grades.FirstOrDefault(g => g.OrderNum > currentGrade.OrderNum);
+
+        var target = await db.Classrooms
+            .Include(c => c.Campus)
+            .FirstOrDefaultAsync(c => c.ClassroomId == toClassroomId && c.Active);
+
+        if (target is null)
+            throw new InvalidOperationException("El curso de destino no existe o está inactivo.");
+
+        if (nextGrade is null || target.GradeId != nextGrade.GradeId)
+            throw new InvalidOperationException("El curso de destino debe ser del grado siguiente al que cursa el estudiante.");
+
+        if (target.CampusId != enrollment.Classroom.CampusId)
+            throw new InvalidOperationException("El curso de destino debe ser de la misma sede del estudiante.");
+
+        var origin = enrollment.Classroom;
+        var movement = Move(enrollment, target, EnrollmentEventTypes.EarlyPromotion, cleanNote, userId);
+
+        await notifications.QueueAsync(
+            NotificationCodes.SimatClassroomChange,
+            new Dictionary<string, string>
+            {
+                ["estudiante"] = FullName(enrollment.Student.User),
+                ["documento"] = enrollment.Student.User.DocumentNumber,
+                ["origen"] = origin.Name,
+                ["destino"] = target.Name,
+                ["sede"] = target.Campus.Name,
             },
             new NotificationTarget(StudentId: enrollment.StudentId, YearId: enrollment.YearId, CampusId: target.CampusId));
 

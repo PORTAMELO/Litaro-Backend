@@ -45,6 +45,11 @@ public static class StudentMovementEndpoints
                 RunAsync(user, userId => svc.TransferCampusAsync(request.EnrollmentId, request.ToClassroomId, request.Note, userId)))
             .RequirePermission(ProcessKeys.StudentMovement, PermissionFlags.Update);
 
+        group.MapPost("/early-promotion", (MoveRequest request, ClaimsPrincipal user, StudentMovementService svc) =>
+                RunAsync(user, userId => svc.PromoteEarlyAsync(
+                    request.EnrollmentId, request.ToClassroomId, request.Note, userId, EnrollmentPeriodService.Today())))
+            .RequirePermission(ProcessKeys.StudentMovement, PermissionFlags.Update);
+
         group.MapPost("/withdrawal", (WithdrawRequest request, ClaimsPrincipal user, StudentMovementService svc) =>
                 RunAsync(user, userId => svc.WithdrawAsync(request.EnrollmentId, request.Reason, request.Note, userId)))
             .RequirePermission(ProcessKeys.StudentMovement, PermissionFlags.Update);

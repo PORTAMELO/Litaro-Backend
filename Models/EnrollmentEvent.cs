@@ -5,6 +5,8 @@ namespace Litaro.Models
         public const string Classroom = "CLASSROOM";
         public const string Campus = "CAMPUS";
         public const string Withdrawal = "WITHDRAWAL";
+        public const string EarlyPromotion = "EARLY_PROMO";
+        public const string YearClose = "YEAR_CLOSE";
     }
 
     public class EnrollmentEvent

@@ -116,8 +116,9 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
 
         var current = await db.Enrollments
             .AsNoTracking()
-            .Where(e => e.YearId == sourceYear && e.Status == ActiveEnrollment)
-            .Select(e => new { e.StudentId, e.Classroom.GradeId })
+            .Where(e => e.YearId == sourceYear &&
+                (e.Status == ActiveEnrollment || e.Status == EnrollmentStatuses.Promoted || e.Status == EnrollmentStatuses.Failed))
+            .Select(e => new { e.StudentId, e.Classroom.GradeId, e.Status })
             .ToListAsync();
 
         var withPreEnrollment = (await db.PreEnrollments
@@ -153,7 +154,11 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
 
             Grade? nextGrade = null;
             var currentGrade = grades.FirstOrDefault(g => g.GradeId == item.GradeId);
-            if (currentGrade is not null)
+            if (currentGrade is not null && item.Status == EnrollmentStatuses.Failed)
+            {
+                nextGrade = currentGrade;
+            }
+            else if (currentGrade is not null)
             {
                 var currentOrder = currentGrade.OrderNum;
                 nextGrade = grades.FirstOrDefault(g => g.OrderNum > currentOrder);

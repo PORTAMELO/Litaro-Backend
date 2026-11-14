@@ -6,6 +6,7 @@ public static class ProcessKeys
     public const string EnrollmentProcess = "EnrollmentProcess";
     public const string AdmissionDecision = "AdmissionDecision";
     public const string StudentMovement = "StudentMovement";
+    public const string YearClosing = "YearClosing";
     public const string MySchedule = "MySchedule";
     public const string GradesModule = "GradesModule";
     public const string ObservationsModule = "ObservationsModule";
@@ -56,6 +57,7 @@ public static class PermissionCatalog
         ProcessKeys.EnrollmentProcess,
         ProcessKeys.AdmissionDecision,
         ProcessKeys.StudentMovement,
+        ProcessKeys.YearClosing,
         ProcessKeys.MySchedule,
         ProcessKeys.GradesModule,
         ProcessKeys.ObservationsModule,
