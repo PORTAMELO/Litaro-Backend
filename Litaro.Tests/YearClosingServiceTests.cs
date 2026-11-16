@@ -358,4 +358,34 @@ public class YearClosingServiceTests
         Assert.Equal(school.C1001.GradeId, reserved[school.Beto.StudentId]);
         Assert.Equal(eleventh.GradeId, reserved[school.Caro.StudentId]);
     }
+
+    [Fact]
+    public async Task Closing_moves_an_existing_reservation_of_a_failed_student_to_the_same_grade()
+    {
+        var scene = await GradedAsync();
+        using var db = scene.Db;
+        var school = scene.School;
+
+        var eleventh = new Grade { Name = "Once", OrderNum = 11, Level = "Media" };
+        db.Grades.Add(eleventh);
+        db.AcademicYears.Add(new AcademicYear { YearId = 2027, StartDate = Utc(1, 1), EndDate = Utc(1, 2), Active = false });
+        db.EnrollmentPeriods.Add(new EnrollmentPeriod { YearId = 2027 });
+        await db.SaveChangesAsync();
+
+        var preEnrollment = new PreEnrollmentService(db, new EnrollmentPeriodService(db), new NotificationService(db));
+        await preEnrollment.GenerateAsync(2027);
+
+        var beto = await db.PreEnrollments.SingleAsync(p => p.StudentId == school.Beto.StudentId);
+        Assert.Equal(eleventh.GradeId, beto.GradeId);
+        beto.Status = PreEnrollmentStatuses.Confirmed;
+        await db.SaveChangesAsync();
+
+        await scene.Service.CloseAsync(new CloseRequest(TestSchool.YearId, school.C1001.ClassroomId, null), school.Marta.Id);
+
+        var reserved = await db.PreEnrollments.AsNoTracking().ToDictionaryAsync(p => p.StudentId);
+        Assert.Equal(school.C1001.GradeId, reserved[school.Beto.StudentId].GradeId);
+        Assert.Equal(PreEnrollmentStatuses.Confirmed, reserved[school.Beto.StudentId].Status);
+        Assert.Equal(eleventh.GradeId, reserved[school.Ana.StudentId].GradeId);
+        Assert.Equal(eleventh.GradeId, reserved[school.Caro.StudentId].GradeId);
+    }
 }

@@ -170,6 +170,7 @@ public class YearClosingService(AppDbContext db, PromotionSettingsService promot
         var evaluated = await EvaluateAsync(request.YearId, classroom, enrollments);
 
         int promoted = 0, failed = 0, pending = 0;
+        var failedStudentIds = new List<int>();
 
         foreach (var item in evaluated)
         {
@@ -210,12 +211,42 @@ public class YearClosingService(AppDbContext db, PromotionSettingsService promot
                 UserId = userId,
             });
 
-            if (result == PromotionRules.Promoted) promoted++;
-            else failed++;
+            if (result == PromotionRules.Promoted)
+            {
+                promoted++;
+            }
+            else
+            {
+                failed++;
+                failedStudentIds.Add(item.Enrollment.StudentId);
+            }
         }
 
+        await KeepReservedGradeAsync(request.YearId, classroom.GradeId, failedStudentIds);
         await db.SaveChangesAsync();
         return new CloseResultDto(promoted, failed, pending);
+    }
+
+    private async Task KeepReservedGradeAsync(short yearId, int gradeId, List<int> failedStudentIds)
+    {
+        if (failedStudentIds.Count == 0)
+            return;
+
+        var nextYearId = await db.AcademicYears
+            .Where(y => y.YearId > yearId)
+            .OrderBy(y => y.YearId)
+            .Select(y => (short?)y.YearId)
+            .FirstOrDefaultAsync();
+
+        if (nextYearId is null)
+            return;
+
+        var reserved = await db.PreEnrollments
+            .Where(p => p.YearId == nextYearId && failedStudentIds.Contains(p.StudentId) && p.GradeId != gradeId)
+            .ToListAsync();
+
+        foreach (var item in reserved)
+            item.GradeId = gradeId;
     }
 
     private async Task<List<Evaluated>> EvaluateAsync(short yearId, Classroom classroom, List<Enrollment> enrollments)
