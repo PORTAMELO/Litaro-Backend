@@ -21,6 +21,14 @@ namespace Litaro.Services
             return configured?.ToArray() ?? FallbackRelationships;
         }
 
+        private async Task<string[]> GetValidDocumentTypesAsync()
+        {
+            var configured = await characteristicSvc.GetValidValuesForColumnAsync("User", "DocumentType");
+            return configured?.ToArray() ?? FallbackDocumentTypes;
+        }
+
+        private static readonly string[] FallbackDocumentTypes = { "CC", "TI", "CE", "PAS", "RC" };
+
         public record CreateParentRequest(
         string DocumentType, string DocumentNumber, string FirstName, string LastName,
         string Email, string? PhoneNumber, string Password, int CampusId, string Relationship, List<int>? StudentIds);
@@ -42,7 +50,7 @@ namespace Litaro.Services
 
         public async Task<CreateParentResult> CreateAsync(CreateParentRequest request)
         {
-            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
+            var validDocTypes = await GetValidDocumentTypesAsync();
             if (!validDocTypes.Contains(request.DocumentType))
                 throw new InvalidOperationException($"Tipo de documento '{request.DocumentType}' no válido.");
 
@@ -191,7 +199,7 @@ namespace Litaro.Services
             var errors = new List<string>();
             int imported = 0;
 
-            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
+            var validDocTypes = await GetValidDocumentTypesAsync();
             var validRelationships = await GetValidRelationshipsAsync();
 
             var rawLines = new List<(int LineNumber, string Line)>();

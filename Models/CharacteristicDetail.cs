@@ -12,5 +12,7 @@ public class CharacteristicDetail
 
     public string Valor { get; set; } = string.Empty;
 
+    public string? Codigo { get; set; }
+
     public DateTime CreationDate { get; set; } = DateTime.UtcNow;
 }

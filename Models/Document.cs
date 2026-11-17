@@ -17,6 +17,7 @@ namespace Litaro.Models
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public int? ReplacedById { get; set; }
         public DateTime? ReplacedAt { get; set; }
+        public DateTime? FileRemovedAt { get; set; }
         public AcademicYear? AcademicYear { get; set; }
         public User UploadedBy { get; set; } = null!;
         public User? ReplacedBy { get; set; }

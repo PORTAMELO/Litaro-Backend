@@ -48,6 +48,31 @@ public static class CharacteristicEndpoints
             }
         }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
+        app.MapPut("/characteristic-details/{id:int}", async (int id, SaveCharacteristicDetailRequest request, CharacteristicService svc) =>
+        {
+            try
+            {
+                var updated = await svc.UpdateDetailAsync(id, request);
+                return updated is not null ? Results.Ok(updated) : Results.NotFound();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+
+        app.MapDelete("/characteristic-details/{id:int}", async (int id, CharacteristicService svc) =>
+        {
+            try
+            {
+                return await svc.DeleteDetailAsync(id) ? Results.NoContent() : Results.NotFound();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
+
         app.MapGet("/characteristics/{characteristicId:int}/details", async (int characteristicId, CharacteristicService svc) =>
         {
             var details = await svc.GetDetailsAsync(characteristicId);

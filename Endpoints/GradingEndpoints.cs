@@ -9,8 +9,6 @@ namespace Litaro.Endpoints;
 public static class GradingEndpoints
 {
     private const long UploadLimitBytes = 11 * 1024 * 1024;
-    private const string ClientHeader = "X-Requested-With";
-    private const string ClientHeaderValue = "XMLHttpRequest";
 
     private static readonly PermissionFlags[] Flags =
         [PermissionFlags.Read, PermissionFlags.Create, PermissionFlags.Update, PermissionFlags.Delete];
@@ -202,12 +200,6 @@ public static class GradingEndpoints
             return Results.BadRequest(new { message = "No fue posible comunicarse con el almacenamiento de documentos." });
         }
     }
-
-    private static RouteHandlerBuilder RequireClientHeader(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(async (context, next) =>
-            context.HttpContext.Request.Headers[ClientHeader] == ClientHeaderValue
-                ? await next(context)
-                : Results.Json(new { message = PermissionCatalog.DeniedMessage }, statusCode: StatusCodes.Status403Forbidden));
 
     private static DateOnly Today() => EnrollmentPeriodService.Today();
 

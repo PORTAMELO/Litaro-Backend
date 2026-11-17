@@ -215,6 +215,17 @@ namespace Litaro.Migrations
                     b.Property<DateOnly>("BirthDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("BloodType")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<int?>("CampusId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConflictVictim")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -231,6 +242,10 @@ namespace Litaro.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("DisabilityType")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<string>("DocumentNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -241,13 +256,57 @@ namespace Litaro.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Eps")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EthnicGroup")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("ExceptionalCapacity")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<char?>("Gender")
+                        .HasMaxLength(1)
+                        .HasColumnType("character(1)");
+
                     b.Property<int>("GradeId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("GuardianAddress")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("GuardianDocumentNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GuardianDocumentType")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("GuardianEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("GuardianFirstName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("GuardianLastName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("GuardianName")
                         .IsRequired()
@@ -259,10 +318,18 @@ namespace Litaro.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("GuardianRelationship")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Methodology")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
@@ -275,6 +342,9 @@ namespace Litaro.Migrations
                         .HasColumnType("character varying(12)")
                         .HasDefaultValue("PENDING");
 
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("WaitlistedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -283,11 +353,15 @@ namespace Litaro.Migrations
 
                     b.HasKey("AdmissionRequestId");
 
+                    b.HasIndex("CampusId");
+
                     b.HasIndex("CreatedById");
 
                     b.HasIndex("DecidedById");
 
                     b.HasIndex("GradeId");
+
+                    b.HasIndex("StudentId");
 
                     b.HasIndex("YearId", "DocumentNumber");
 
@@ -606,6 +680,10 @@ namespace Litaro.Migrations
                     b.Property<int>("CharacteristicId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<DateTime>("CreationDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -781,6 +859,9 @@ namespace Litaro.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("FileRemovedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsCurrent")
                         .HasColumnType("boolean");
@@ -1376,6 +1457,10 @@ namespace Litaro.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Relationship")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1715,9 +1800,25 @@ namespace Litaro.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)");
 
+                    b.Property<string>("ConflictVictim")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("DisabilityType")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<string>("Eps")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EthnicGroup")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("ExceptionalCapacity")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<char>("Gender")
                         .HasMaxLength(1)
@@ -1725,6 +1826,10 @@ namespace Litaro.Migrations
 
                     b.Property<bool>("HasPiar")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Methodology")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<string>("Neighborhood")
                         .HasMaxLength(100)
@@ -2363,6 +2468,11 @@ namespace Litaro.Migrations
 
             modelBuilder.Entity("Litaro.Models.AdmissionRequest", b =>
                 {
+                    b.HasOne("Litaro.Models.Campus", "Campus")
+                        .WithMany()
+                        .HasForeignKey("CampusId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Litaro.Models.User", "CreatedBy")
                         .WithMany()
                         .HasForeignKey("CreatedById")
@@ -2380,6 +2490,11 @@ namespace Litaro.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Litaro.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Litaro.Models.AcademicYear", "AcademicYear")
                         .WithMany()
                         .HasForeignKey("YearId")
@@ -2388,11 +2503,15 @@ namespace Litaro.Migrations
 
                     b.Navigation("AcademicYear");
 
+                    b.Navigation("Campus");
+
                     b.Navigation("CreatedBy");
 
                     b.Navigation("DecidedBy");
 
                     b.Navigation("Grade");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Litaro.Models.AdmissionRequestEvent", b =>

@@ -6,6 +6,15 @@ namespace Litaro.Endpoints;
 
 public static class PermissionFilters
 {
+    private const string ClientHeader = "X-Requested-With";
+    private const string ClientHeaderValue = "XMLHttpRequest";
+
+    public static RouteHandlerBuilder RequireClientHeader(this RouteHandlerBuilder builder) =>
+        builder.AddEndpointFilter(async (context, next) =>
+            context.HttpContext.Request.Headers[ClientHeader] == ClientHeaderValue
+                ? await next(context)
+                : Results.Json(new { message = PermissionCatalog.DeniedMessage }, statusCode: StatusCodes.Status403Forbidden));
+
     public static RouteHandlerBuilder RequirePermission(this RouteHandlerBuilder builder, string key, PermissionFlags flag) =>
         builder.RequireAnyPermission((key, flag));
 

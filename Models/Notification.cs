@@ -17,6 +17,8 @@ namespace Litaro.Models
         public const string AttPeriodAbsence = "ATT_PERIOD_ABSENCE";
         public const string PlannerOverdue = "PLANNER_OVERDUE";
         public const string PlannerRequest = "PLANNER_REQUEST";
+        public const string EnrollDocsIncomplete = "ENROLL_DOCS_INCOMPLETE";
+        public const string SimatDataMismatch = "SIMAT_DATA_MISMATCH";
     }
 
     public static class NotificationStatuses

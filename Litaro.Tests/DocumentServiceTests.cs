@@ -46,7 +46,7 @@ public class DocumentServiceTests
     }
 
     [Fact]
-    public async Task Upload_replaces_previous_and_keeps_history()
+    public async Task Upload_replaces_previous_and_removes_old_file()
     {
         var (db, storage, service, user) = Create();
 
@@ -59,10 +59,164 @@ public class DocumentServiceTests
         Assert.False(rows[0].IsCurrent);
         Assert.Equal(user.Id, rows[0].ReplacedById);
         Assert.Equal(Now.AddHours(1), rows[0].ReplacedAt);
+        Assert.Equal(Now.AddHours(1), rows[0].FileRemovedAt);
         Assert.True(rows[1].IsCurrent);
+        Assert.Null(rows[1].FileRemovedAt);
         Assert.Equal(second.DocumentId, rows[1].DocumentId);
         Assert.Equal("v2.pdf", second.FileName);
+        Assert.Single(storage.Files);
+        Assert.True(storage.Files.ContainsKey(rows[1].StoragePath));
+    }
+
+    [Fact]
+    public async Task Remove_deletes_file_and_keeps_trace()
+    {
+        var (db, storage, service, user) = Create();
+
+        await service.UploadAsync(DocumentTypes.StudyPlanner, 7, null, FakeDocumentStorage.Pdf(), user.Id, Now);
+
+        Assert.True(await service.RemoveCurrentAsync(DocumentTypes.StudyPlanner, 7, user.Id, Now.AddHours(2)));
+
+        var row = await db.Documents.SingleAsync();
+
+        Assert.Empty(storage.Files);
+        Assert.False(row.IsCurrent);
+        Assert.Equal(user.Id, row.ReplacedById);
+        Assert.Equal(Now.AddHours(2), row.ReplacedAt);
+        Assert.Equal(Now.AddHours(2), row.FileRemovedAt);
+        Assert.False(await service.RemoveCurrentAsync(DocumentTypes.StudyPlanner, 7, user.Id, Now.AddHours(3)));
+    }
+
+    [Fact]
+    public async Task Failed_storage_delete_keeps_document_current()
+    {
+        var (db, storage, service, user) = Create();
+
+        await service.UploadAsync(DocumentTypes.StudyPlanner, 7, null, FakeDocumentStorage.Pdf(), user.Id, Now);
+        storage.FailNextDelete = true;
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RemoveCurrentAsync(DocumentTypes.StudyPlanner, 7, user.Id, Now));
+
+        var row = await db.Documents.AsNoTracking().SingleAsync();
+
+        Assert.Equal("No fue posible eliminar el documento.", error.Message);
+        Assert.True(row.IsCurrent);
+        Assert.Null(row.FileRemovedAt);
+        Assert.Single(storage.Files);
+    }
+
+    [Fact]
+    public async Task Failed_delete_on_replace_keeps_previous_and_drops_new_file()
+    {
+        var (db, storage, service, user) = Create();
+
+        await service.UploadAsync(DocumentTypes.StudyPlanner, 7, null, FakeDocumentStorage.Pdf("v1.pdf"), user.Id, Now);
+        storage.FailNextDelete = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UploadAsync(DocumentTypes.StudyPlanner, 7, null, FakeDocumentStorage.Pdf("v2.pdf"), user.Id, Now.AddHours(1)));
+
+        var only = await db.Documents.AsNoTracking().SingleAsync();
+
+        Assert.True(only.IsCurrent);
+        Assert.Equal("v1.pdf", only.FileName);
+        Assert.Single(storage.Files);
+        Assert.True(storage.Files.ContainsKey(only.StoragePath));
+    }
+
+    [Fact]
+    public async Task Enrollment_rule_accepts_pdf_jpg_png_and_stores_real_content_type()
+    {
+        var (db, _, service, user) = Create();
+        var rule = DocumentTypes.Enrollment(12, DocumentTypes.AdmissionTable);
+
+        Assert.Equal("ENROLLMENT_DOC:12", rule.Code);
+        Assert.Equal(12, DocumentTypes.EnrollmentDetailId(rule.Code));
+        Assert.Null(DocumentTypes.EnrollmentDetailId(DocumentTypes.StudyPlanner));
+
+        await service.UploadAsync(rule, 1, 2027, FakeDocumentStorage.Jpg("foto.jpeg"), user.Id, Now);
+        await service.UploadAsync(rule, 2, 2027, FakeDocumentStorage.Png(), user.Id, Now);
+        await service.UploadAsync(rule, 3, 2027, FakeDocumentStorage.Pdf("registro.pdf"), user.Id, Now);
+
+        var rows = await db.Documents.OrderBy(d => d.EntityId).ToListAsync();
+
+        Assert.Equal(["image/jpeg", "image/png", "application/pdf"], rows.Select(r => r.ContentType));
+        Assert.All(rows, r => Assert.Equal("Enrollment", r.Module));
+        Assert.All(rows, r => Assert.Equal("AdmissionRequest", r.EntityTable));
+        Assert.All(rows, r => Assert.DoesNotContain(":", r.StoragePath));
+        Assert.EndsWith(".jpeg", rows[0].StoragePath);
+
+        var mismatch = FakeDocumentStorage.Upload("foto.png", "image/png", [0xFF, 0xD8, 0xFF, 0, 0, 0, 0, 0, 0]);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UploadAsync(rule, 4, 2027, mismatch, user.Id, Now));
+
+        Assert.Equal("El archivo debe ser PDF, JPG o PNG.", error.Message);
+    }
+
+    [Fact]
+    public async Task Reassign_moves_current_and_replaces_target_same_type()
+    {
+        var (db, storage, service, user) = Create();
+        var first = DocumentTypes.Enrollment(1, DocumentTypes.AdmissionTable);
+        var second = DocumentTypes.Enrollment(2, DocumentTypes.AdmissionTable);
+        var studentFirst = DocumentTypes.Enrollment(1, DocumentTypes.StudentTable);
+
+        await service.UploadAsync(first, 5, 2027, FakeDocumentStorage.Pdf("a.pdf"), user.Id, Now);
+        await service.UploadAsync(second, 5, 2027, FakeDocumentStorage.Pdf("b.pdf"), user.Id, Now);
+        await service.UploadAsync(studentFirst, 9, 2026, FakeDocumentStorage.Pdf("viejo.pdf"), user.Id, Now);
+
+        var moved = await service.ReassignAsync(
+            DocumentTypes.EnrollmentPrefix, DocumentTypes.AdmissionTable, 5, DocumentTypes.StudentTable, 9, user.Id, Now.AddHours(1));
+
+        var rows = await db.Documents.AsNoTracking().ToListAsync();
+        var current = rows.Where(r => r.IsCurrent).ToList();
+        var old = rows.Single(r => !r.IsCurrent);
+
+        Assert.Equal(2, moved);
+        Assert.Equal(2, current.Count);
+        Assert.All(current, r => Assert.Equal("Student", r.EntityTable));
+        Assert.All(current, r => Assert.Equal(9, r.EntityId));
+        Assert.Equal(["a.pdf", "b.pdf"], current.Select(r => r.FileName).Order());
+        Assert.Equal("viejo.pdf", old.FileName);
+        Assert.Equal(Now.AddHours(1), old.FileRemovedAt);
+        Assert.False(storage.Files.ContainsKey(old.StoragePath));
         Assert.Equal(2, storage.Files.Count);
+    }
+
+    [Fact]
+    public async Task Current_by_prefix_lists_every_enrollment_type_of_the_entities()
+    {
+        var (_, _, service, user) = Create();
+
+        await service.UploadAsync(DocumentTypes.Enrollment(1, DocumentTypes.StudentTable), 9, 2027, FakeDocumentStorage.Pdf(), user.Id, Now);
+        await service.UploadAsync(DocumentTypes.Enrollment(2, DocumentTypes.StudentTable), 9, 2027, FakeDocumentStorage.Png(), user.Id, Now);
+        await service.UploadAsync(DocumentTypes.Enrollment(1, DocumentTypes.AdmissionTable), 9, 2027, FakeDocumentStorage.Pdf(), user.Id, Now);
+        await service.UploadAsync(DocumentTypes.StudyPlanner, 9, null, FakeDocumentStorage.Pdf(), user.Id, Now);
+
+        var found = await service.CurrentByPrefixAsync(DocumentTypes.EnrollmentPrefix, DocumentTypes.StudentTable, [9, 10]);
+
+        Assert.Equal(["ENROLLMENT_DOC:1", "ENROLLMENT_DOC:2"], found.Select(f => f.DocumentType).Order());
+        Assert.All(found, f => Assert.Equal(9, f.EntityId));
+        Assert.True(await service.HasAnyAsync("ENROLLMENT_DOC:2"));
+        Assert.False(await service.HasAnyAsync("ENROLLMENT_DOC:3"));
+    }
+
+    [Fact]
+    public async Task Purge_removes_files_of_non_current_rows_without_stamp()
+    {
+        var (db, storage, service, user) = Create();
+
+        await service.UploadAsync(DocumentTypes.StudyPlanner, 7, null, FakeDocumentStorage.Pdf(), user.Id, Now);
+
+        var row = await db.Documents.SingleAsync();
+        row.IsCurrent = false;
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await service.PurgeRemovedAsync(Now.AddDays(1)));
+        Assert.Equal(Now.AddDays(1), (await db.Documents.AsNoTracking().SingleAsync()).FileRemovedAt);
+        Assert.Empty(storage.Files);
+        Assert.Equal(0, await service.PurgeRemovedAsync(Now.AddDays(2)));
     }
 
     [Fact]

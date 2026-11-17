@@ -38,10 +38,7 @@ public class AccountService(AppDbContext db, UserManager<User> userManager, Sign
         if (await userManager.IsLockedOutAsync(user))
             throw new InvalidOperationException(LockedOutError);
 
-        var student = await db.Students.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.StudentId == user.Id && s.Active);
-
-        if (student is null || DateOnly.FromDateTime(student.BirthDate) != request.BirthDate)
+        if (!await BirthDateMatchesAsync(db, user.Id, request.BirthDate))
         {
             await userManager.AccessFailedAsync(user);
             throw new InvalidOperationException(
@@ -54,6 +51,27 @@ public class AccountService(AppDbContext db, UserManager<User> userManager, Sign
             throw new InvalidOperationException(Describe(result));
 
         await userManager.ResetAccessFailedCountAsync(user);
+    }
+
+    public static async Task<bool> BirthDateMatchesAsync(AppDbContext db, int userId, DateOnly birthDate)
+    {
+        var own = await db.Students.AsNoTracking()
+            .Where(s => s.StudentId == userId && s.Active)
+            .Select(s => (DateTime?)s.BirthDate)
+            .FirstOrDefaultAsync();
+
+        if (own is { } date && DateOnly.FromDateTime(date) == birthDate)
+            return true;
+
+        if (!await db.Parents.AnyAsync(p => p.ParentId == userId && p.Active))
+            return false;
+
+        var children = await db.ParentStudents.AsNoTracking()
+            .Where(ps => ps.ParentId == userId)
+            .Select(ps => ps.Student.BirthDate)
+            .ToListAsync();
+
+        return children.Any(child => DateOnly.FromDateTime(child) == birthDate);
     }
 
     public async Task ChangePasswordAsync(ChangePasswordRequest request)

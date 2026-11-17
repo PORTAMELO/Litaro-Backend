@@ -15,7 +15,8 @@ public class PermissionCatalogTests
     [Fact]
     public void Processes_lists_every_process_key()
     {
-        Assert.Equal(24, PermissionCatalog.Processes.Count);
+        Assert.Equal(25, PermissionCatalog.Processes.Count);
+        Assert.Contains(ProcessKeys.EnrollmentSettings, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.EnrollmentProcess, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.AdmissionDecision, PermissionCatalog.Processes);
     }
@@ -54,4 +55,11 @@ public class PermissionCatalogTests
         => Assert.All(
             new[] { "GradeBook", "GradeDesign", "StudyPlanner", "StudyPlannerPanel", "GradeSettings" },
             key => Assert.Equal(PermissionCatalog.ProcessKind, PermissionCatalog.KindOf(key)));
+
+    [Fact]
+    public void AliasOf_maps_Acudiente_to_Padre()
+    {
+        Assert.Equal("Padre", PermissionCatalog.AliasOf("Acudiente"));
+        Assert.Null(PermissionCatalog.AliasOf("Rector"));
+    }
 }

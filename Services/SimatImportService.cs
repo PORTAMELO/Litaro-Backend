@@ -37,6 +37,7 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
 
     private const string StudentRoleName = "Estudiante";
     private const string Enrolled = "MATRICULADO";
+    private const int DiffLength = 250;
     private static readonly string[] RequiredColumns =
     [
         "ANO", "DANE", "ESTADO", "MOTIVO", "FECHAINI",
@@ -84,6 +85,7 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
         public Campus? Campus { get; set; }
         public Classroom? Classroom { get; set; }
         public Enrollment? Enrollment { get; set; }
+        public List<SimatFieldDiff> Diffs { get; } = [];
     }
 
     public async Task<SimatImportResult> ImportAsync(Stream input, short yearId, bool dryRun)
@@ -364,6 +366,19 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
             else
             {
                 result.StudentsUpdated++;
+
+                foreach (var diff in new[]
+                         {
+                             SimatDataDiff.Resolve(SimatDataDiff.EpsField, student.Eps, r.Eps).Diff,
+                             SimatDataDiff.Resolve(SimatDataDiff.BloodTypeField, student.BloodType, r.BloodType).Diff,
+                         })
+                {
+                    if (diff is not null)
+                        plan.Diffs.Add(diff);
+                }
+
+                if (plan.Diffs.Count > 0)
+                    AddIssue(result, r, Warning, $"Datos distintos al SIMAT: {SimatDataDiff.Describe(plan.Diffs)}. LITARO conserva su valor.");
             }
 
             if (student is not null && enrollmentByStudent.TryGetValue(student.StudentId, out var enrollment))
@@ -418,6 +433,7 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
                 ApplyPlan(plan, yearId, roleId.Value);
 
             result.AlertsCreated = await QueueMissingAlertsAsync(result, yearId);
+            result.AlertsCreated += await QueueMismatchAlertsAsync(plans, yearId);
 
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -463,6 +479,46 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
         return created;
     }
 
+    private async Task<int> QueueMismatchAlertsAsync(List<RowPlan> plans, short yearId)
+    {
+        var pending = plans.Where(p => p.Diffs.Count > 0 && p.Student is not null).ToList();
+        if (pending.Count == 0)
+            return 0;
+
+        string KeyOf(RowPlan plan) => SimatDataDiff.DedupKey(plan.Student!.StudentId, yearId, plan.Diffs);
+
+        await notifications.PreloadDedupKeysAsync(pending.Select(KeyOf));
+
+        var created = 0;
+
+        foreach (var plan in pending)
+        {
+            var description = SimatDataDiff.Describe(plan.Diffs);
+            if (description.Length > DiffLength)
+                description = description[..(DiffLength - 1)] + "…";
+
+            var queued = await notifications.QueueAsync(
+                NotificationCodes.SimatDataMismatch,
+                new Dictionary<string, string>
+                {
+                    ["estudiante"] = plan.Row.FullName,
+                    ["documento"] = plan.Row.Document,
+                    ["anio"] = yearId.ToString(),
+                    ["diferencias"] = description,
+                },
+                new NotificationTarget(
+                    StudentId: plan.Student!.StudentId,
+                    YearId: yearId,
+                    CampusId: plan.Campus?.CampusId,
+                    DedupKey: KeyOf(plan)));
+
+            if (queued is not null)
+                created++;
+        }
+
+        return created;
+    }
+
     private void ApplyPlan(RowPlan plan, short yearId, int roleId)
     {
         var r = plan.Row;
@@ -494,8 +550,8 @@ public class SimatImportService(AppDbContext db, UserManager<User> userManager, 
         student.BirthDate = DateTime.SpecifyKind(r.BirthDate!.Value.Date, DateTimeKind.Utc);
         student.Gender = r.Gender!.Value;
         student.Neighborhood = r.Neighborhood;
-        student.Eps = r.Eps;
-        student.BloodType = r.BloodType;
+        student.Eps = isNewStudent ? r.Eps : SimatDataDiff.Resolve(SimatDataDiff.EpsField, student.Eps, r.Eps).Value;
+        student.BloodType = isNewStudent ? r.BloodType : SimatDataDiff.Resolve(SimatDataDiff.BloodTypeField, student.BloodType, r.BloodType).Value;
         student.HasPiar = r.HasPiar;
         student.Active = true;
 

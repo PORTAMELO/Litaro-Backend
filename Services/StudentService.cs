@@ -5,9 +5,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services
 {
-    public class StudentService(AppDbContext db, UserManager<User> userManager)
+    public class StudentService(AppDbContext db, UserManager<User> userManager, CharacteristicService characteristicSvc)
     {
         public const string RoleName = "Estudiante";
+
+        private async Task<string[]> GetValidDocumentTypesAsync(string[] fallback)
+        {
+            var configured = await characteristicSvc.GetValidValuesForColumnAsync("User", "DocumentType");
+            return configured?.ToArray() ?? fallback;
+        }
 
         public record CreateStudentRequest(
         string DocumentType, string DocumentNumber, string FirstName, string LastName,
@@ -31,7 +37,7 @@ namespace Litaro.Services
 
         public async Task<CreateStudentResult> CreateAsync(CreateStudentRequest request)
         {
-            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC", "PPT", "NES", "PEP" };
+            var validDocTypes = await GetValidDocumentTypesAsync(["CC", "TI", "CE", "PAS", "RC", "PPT", "NES", "PEP"]);
             if (!validDocTypes.Contains(request.DocumentType))
                 throw new InvalidOperationException($"Tipo de documento '{request.DocumentType}' no válido.");
 
@@ -158,7 +164,7 @@ namespace Litaro.Services
         {
             var errors = new List<string>();
             int imported = 0;
-            var validDocTypes = new[] { "CC", "TI", "CE", "PAS", "RC" };
+            var validDocTypes = await GetValidDocumentTypesAsync(["CC", "TI", "CE", "PAS", "RC"]);
 
             var rawLines = new List<(int LineNumber, string Line)>();
             using (var reader = new StreamReader(csvStream))

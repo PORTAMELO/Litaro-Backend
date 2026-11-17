@@ -24,7 +24,9 @@ public record AdmissionDto(
     string CreatedBy,
     DateTime? DecidedAt,
     string? DecidedBy,
-    string? DecisionNote);
+    string? DecisionNote,
+    int MissingDocuments,
+    bool Complete);
 
 public record AdmissionEventDto(
     DateTime CreatedAt,
@@ -33,20 +35,30 @@ public record AdmissionEventDto(
     string UserName,
     string? Note);
 
-public record CreateAdmissionRequest(
-    short YearId,
+public record AdmissionDetailDto(
+    AdmissionDto Summary,
     int GradeId,
-    string FirstName,
-    string LastName,
-    string DocumentType,
-    string DocumentNumber,
-    DateOnly BirthDate,
-    string GuardianName,
-    string GuardianPhone,
-    string? Notes);
+    StudentFormData Student,
+    GuardianFormData Guardian,
+    C600FormData C600,
+    bool Complete,
+    int? StudentId,
+    ChecklistDto Documents);
 
-public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, NotificationService notifications)
+public class AdmissionService(
+    AppDbContext db,
+    EnrollmentPeriodService periods,
+    NotificationService notifications,
+    EnrollmentFormValidator validator,
+    EnrollmentDocumentService documents,
+    EnrollmentPersonService people)
 {
+    private const int NotesLength = 500;
+    private const int GuardianNameLength = 150;
+    private const string UpdatedNote = "Solicitud actualizada.";
+    private const int ListLength = 250;
+    private const string FinalDecision = "La solicitud ya tiene una decisión final y no puede cambiarse.";
+
     public async Task<List<AdmissionDto>> ListAsync(short yearId)
     {
         var rows = await db.AdmissionRequests
@@ -55,94 +67,86 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
             .OrderBy(a => a.CreatedAt)
             .Select(a => new
             {
-                a.AdmissionRequestId,
-                a.YearId,
-                a.GradeId,
+                Admission = a,
                 GradeName = a.Grade.Name,
-                a.FirstName,
-                a.LastName,
-                a.DocumentType,
-                a.DocumentNumber,
-                a.BirthDate,
-                a.GuardianName,
-                a.GuardianPhone,
-                a.Notes,
-                a.Status,
-                a.WaitlistedAt,
-                a.CreatedAt,
                 CreatedBy = a.CreatedBy.FirstName + " " + a.CreatedBy.LastName,
-                a.DecidedAt,
                 DecidedBy = a.DecidedBy != null ? a.DecidedBy.FirstName + " " + a.DecidedBy.LastName : null,
-                a.DecisionNote
             })
             .ToListAsync();
 
         var position = new Dictionary<int, int>();
-        foreach (var group in rows.Where(r => r.Status == AdmissionStatuses.Waitlist).GroupBy(r => r.GradeId))
+        foreach (var group in rows.Select(r => r.Admission).Where(a => a.Status == AdmissionStatuses.Waitlist).GroupBy(a => a.GradeId))
         {
             var place = 0;
-            foreach (var row in group.OrderBy(r => r.WaitlistedAt).ThenBy(r => r.AdmissionRequestId))
+            foreach (var admission in group.OrderBy(a => a.WaitlistedAt).ThenBy(a => a.AdmissionRequestId))
             {
                 place++;
-                position[row.AdmissionRequestId] = place;
+                position[admission.AdmissionRequestId] = place;
             }
         }
 
+        var pendingIds = rows.Where(r => r.Admission.StudentId is null).Select(r => r.Admission.AdmissionRequestId).ToList();
+        var studentIds = rows.Where(r => r.Admission.StudentId is not null).Select(r => r.Admission.StudentId!.Value).ToList();
+        var missingByAdmission = await documents.MissingCountsAsync(DocumentTypes.AdmissionTable, pendingIds);
+        var missingByStudent = await documents.MissingCountsAsync(DocumentTypes.StudentTable, studentIds);
+
         return rows
-            .Select(r => new AdmissionDto(
-                r.AdmissionRequestId,
-                r.YearId,
-                r.GradeId,
-                r.GradeName,
-                r.FirstName,
-                r.LastName,
-                r.DocumentType,
-                r.DocumentNumber,
-                r.BirthDate,
-                r.GuardianName,
-                r.GuardianPhone,
-                r.Notes,
-                r.Status,
-                position.TryGetValue(r.AdmissionRequestId, out var waitlistPlace) ? waitlistPlace : (int?)null,
-                r.CreatedAt,
-                r.CreatedBy,
-                r.DecidedAt,
-                r.DecidedBy,
-                r.DecisionNote))
+            .Select(r =>
+            {
+                var a = r.Admission;
+                var missing = a.StudentId is { } studentId
+                    ? missingByStudent.GetValueOrDefault(studentId)
+                    : missingByAdmission.GetValueOrDefault(a.AdmissionRequestId);
+
+                return new AdmissionDto(
+                    a.AdmissionRequestId,
+                    a.YearId,
+                    a.GradeId,
+                    r.GradeName,
+                    a.FirstName,
+                    a.LastName,
+                    a.DocumentType,
+                    a.DocumentNumber,
+                    a.BirthDate,
+                    a.GuardianName,
+                    a.GuardianPhone,
+                    a.Notes,
+                    a.Status,
+                    position.TryGetValue(a.AdmissionRequestId, out var waitlistPlace) ? waitlistPlace : null,
+                    a.CreatedAt,
+                    r.CreatedBy,
+                    a.DecidedAt,
+                    r.DecidedBy,
+                    a.DecisionNote,
+                    missing,
+                    EnrollmentFormValidator.IsComplete(a));
+            })
             .ToList();
     }
 
-    public async Task<int> CreateAsync(CreateAdmissionRequest request, int userId)
+    public async Task<AdmissionDetailDto> GetAsync(int id, DateOnly today)
     {
-        var firstName = (request.FirstName ?? string.Empty).Trim();
-        var lastName = (request.LastName ?? string.Empty).Trim();
-        var documentType = (request.DocumentType ?? string.Empty).Trim().ToUpperInvariant();
-        var documentNumber = (request.DocumentNumber ?? string.Empty).Trim();
-        var guardianName = (request.GuardianName ?? string.Empty).Trim();
-        var guardianPhone = (request.GuardianPhone ?? string.Empty).Trim();
-        var notes = request.Notes?.Trim();
+        var admission = await db.AdmissionRequests.AsNoTracking().FirstOrDefaultAsync(a => a.AdmissionRequestId == id)
+            ?? throw new InvalidOperationException("No existe la solicitud de admisión.");
 
-        if (firstName.Length == 0 || lastName.Length == 0)
-            throw new InvalidOperationException("Los nombres y apellidos del aspirante son obligatorios.");
+        var summary = (await ListAsync(admission.YearId)).Single(a => a.AdmissionRequestId == id);
+        var checklist = await documents.ChecklistAsync(await documents.OwnerOfAdmissionAsync(id), today);
 
-        if (documentType.Length is 0 or > 5)
-            throw new InvalidOperationException("Seleccione el tipo de documento del aspirante.");
+        return new AdmissionDetailDto(
+            summary,
+            admission.GradeId,
+            StudentOf(admission),
+            GuardianOf(admission),
+            C600Of(admission),
+            EnrollmentFormValidator.IsComplete(admission),
+            admission.StudentId,
+            checklist);
+    }
 
-        if (documentNumber.Length is 0 or > 20)
-            throw new InvalidOperationException("El número de documento es obligatorio y no puede superar 20 caracteres.");
-
-        if (guardianName.Length == 0 || guardianPhone.Length == 0)
-            throw new InvalidOperationException("El nombre y el teléfono del acudiente son obligatorios.");
-
-        if (firstName.Length > 100 || lastName.Length > 100 || guardianName.Length > 150 || guardianPhone.Length > 20)
-            throw new InvalidOperationException("Alguno de los textos supera la longitud permitida.");
-
-        if (notes is { Length: > 500 })
-            notes = notes[..500];
-
+    public async Task<int> CreateAsync(SaveAdmissionRequest request, int userId)
+    {
         var today = EnrollmentPeriodService.Today();
-        if (request.BirthDate == default || request.BirthDate > today)
-            throw new InvalidOperationException("La fecha de nacimiento no es válida.");
+        var (student, guardian, c600) = await CleanAsync(request, today, null);
 
         var period = await periods.FindAsync(request.YearId);
         if (period is null)
@@ -153,32 +157,16 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
                 $"Las solicitudes de admisión de {request.YearId} se reciben del {Format(period.AdmissionStart)} " +
                 $"al {Format(period.AdmissionEnd)}.");
 
-        var gradeExists = await db.Grades.AnyAsync(g => g.GradeId == request.GradeId);
-        if (!gradeExists)
-            throw new InvalidOperationException("El grado solicitado no existe.");
-
-        var duplicate = await db.AdmissionRequests.AnyAsync(a =>
-            a.YearId == request.YearId &&
-            a.DocumentNumber == documentNumber &&
-            a.Status != AdmissionStatuses.Rejected);
-        if (duplicate)
-            throw new InvalidOperationException(
-                $"Ya hay una solicitud de admisión vigente para el documento {documentNumber} en {request.YearId}.");
+        await EnsureGradeAsync(request.GradeId);
+        await EnsureNotDuplicatedAsync(request.YearId, student.DocumentNumber!, null);
 
         var admission = new AdmissionRequest
         {
             YearId = request.YearId,
-            GradeId = request.GradeId,
-            FirstName = firstName,
-            LastName = lastName,
-            DocumentType = documentType,
-            DocumentNumber = documentNumber,
-            BirthDate = request.BirthDate,
-            GuardianName = guardianName,
-            GuardianPhone = guardianPhone,
-            Notes = string.IsNullOrEmpty(notes) ? null : notes,
-            CreatedById = userId
+            CreatedById = userId,
         };
+
+        Apply(admission, request.GradeId, student, guardian, c600, request.Notes);
 
         db.AdmissionRequests.Add(admission);
         db.AdmissionRequestEvents.Add(new AdmissionRequestEvent
@@ -193,6 +181,33 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
         return admission.AdmissionRequestId;
     }
 
+    public async Task UpdateAsync(int id, SaveAdmissionRequest request, int userId)
+    {
+        var admission = await db.AdmissionRequests.FirstOrDefaultAsync(a => a.AdmissionRequestId == id)
+            ?? throw new InvalidOperationException("No existe la solicitud de admisión.");
+
+        if (admission.Status is not (AdmissionStatuses.Pending or AdmissionStatuses.Waitlist))
+            throw new InvalidOperationException(FinalDecision);
+
+        var (student, guardian, c600) = await CleanAsync(request, EnrollmentPeriodService.Today(), admission);
+
+        await EnsureGradeAsync(request.GradeId);
+        await EnsureNotDuplicatedAsync(admission.YearId, student.DocumentNumber!, id);
+
+        Apply(admission, request.GradeId, student, guardian, c600, request.Notes);
+
+        db.AdmissionRequestEvents.Add(new AdmissionRequestEvent
+        {
+            AdmissionRequestId = admission.AdmissionRequestId,
+            FromStatus = admission.Status,
+            ToStatus = admission.Status,
+            Note = UpdatedNote,
+            UserId = userId
+        });
+
+        await db.SaveChangesAsync();
+    }
+
     public async Task DecideAsync(int id, string? decision, string? note, int userId)
     {
         var newStatus = (decision ?? string.Empty).Trim().ToUpperInvariant();
@@ -204,7 +219,7 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
             throw new InvalidOperationException("No existe la solicitud de admisión.");
 
         if (admission.Status is AdmissionStatuses.Approved or AdmissionStatuses.Rejected)
-            throw new InvalidOperationException("La solicitud ya tiene una decisión final y no puede cambiarse.");
+            throw new InvalidOperationException(FinalDecision);
 
         if (admission.Status == newStatus)
             throw new InvalidOperationException("La solicitud ya está en ese estado.");
@@ -216,8 +231,59 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
         if (cleanNote is { Length: > 500 })
             cleanNote = cleanNote[..500];
 
+        var approving = newStatus == AdmissionStatuses.Approved;
+
+        if (approving)
+        {
+            if (!EnrollmentFormValidator.IsComplete(admission))
+                throw new InvalidOperationException("Complete el formulario antes de aprobar.");
+
+            await people.EnsureCanSaveAsync(StudentOf(admission), GuardianOf(admission));
+        }
+
         var previousStatus = admission.Status;
         var now = DateTime.UtcNow;
+        var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync() : null;
+
+        try
+        {
+            await ApplyDecisionAsync(admission, previousStatus, newStatus, cleanNote, userId, now);
+
+            if (transaction is not null)
+                await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction is not null)
+                await transaction.RollbackAsync();
+
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+                await transaction.DisposeAsync();
+        }
+    }
+
+    private async Task ApplyDecisionAsync(
+        AdmissionRequest admission,
+        string previousStatus,
+        string newStatus,
+        string? cleanNote,
+        int userId,
+        DateTime now)
+    {
+        if (newStatus == AdmissionStatuses.Approved)
+        {
+            var student = await people.UpsertStudentAsync(StudentOf(admission), C600Of(admission));
+            await people.UpsertGuardianAsync(GuardianOf(admission), admission.CampusId!.Value, student.StudentId);
+
+            admission.StudentId = student.StudentId;
+            await db.SaveChangesAsync();
+
+            await documents.MoveToStudentAsync(admission.AdmissionRequestId, student.StudentId, userId, now);
+        }
 
         admission.Status = newStatus;
         admission.DecidedAt = now;
@@ -256,6 +322,29 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
                     YearId: admission.YearId,
                     SourceTable: "AdmissionRequest",
                     SourceId: admission.AdmissionRequestId));
+
+            var studentId = admission.StudentId!.Value;
+            var missing = await documents.MissingNamesAsync(
+                new DocumentOwner(DocumentTypes.StudentTable, studentId, admission.YearId, studentId));
+
+            if (missing.Count > 0)
+            {
+                await notifications.QueueAsync(
+                    NotificationCodes.EnrollDocsIncomplete,
+                    new Dictionary<string, string>
+                    {
+                        ["estudiante"] = $"{admission.FirstName} {admission.LastName}",
+                        ["documento"] = $"{admission.DocumentType} {admission.DocumentNumber}",
+                        ["anio"] = admission.YearId.ToString(),
+                        ["documentos"] = Cut(string.Join(", ", missing), ListLength),
+                    },
+                    new NotificationTarget(
+                        StudentId: studentId,
+                        YearId: admission.YearId,
+                        CampusId: admission.CampusId,
+                        SourceTable: "AdmissionRequest",
+                        SourceId: admission.AdmissionRequestId));
+            }
         }
 
         await db.SaveChangesAsync();
@@ -276,6 +365,118 @@ public class AdmissionService(AppDbContext db, EnrollmentPeriodService periods, 
                 e.Note))
             .ToListAsync();
     }
+
+    private async Task<(StudentFormData Student, GuardianFormData Guardian, C600FormData C600)> CleanAsync(
+        SaveAdmissionRequest request,
+        DateOnly today,
+        AdmissionRequest? stored)
+    {
+        if (request.Student is null || request.Guardian is null || request.C600 is null)
+            throw new InvalidOperationException(EnrollmentFormValidator.StudentIncomplete);
+
+        var student = await validator.CleanStudentAsync(request.Student, today, stored is null ? null : StudentOf(stored));
+        var guardian = await validator.CleanGuardianAsync(request.Guardian, stored is null ? null : GuardianOf(stored));
+        var c600 = await validator.CleanC600Async(request.C600, stored is null ? null : C600Of(stored));
+
+        EnrollmentFormValidator.EnsureDistinct(student, guardian);
+        await validator.EnsureEmailFreeAsync(student.Email, student.DocumentNumber!);
+        await validator.EnsureEmailFreeAsync(guardian.Email, guardian.DocumentNumber!);
+
+        return (student, guardian, c600);
+    }
+
+    private async Task EnsureGradeAsync(int gradeId)
+    {
+        if (!await db.Grades.AnyAsync(g => g.GradeId == gradeId))
+            throw new InvalidOperationException("El grado solicitado no existe.");
+    }
+
+    private async Task EnsureNotDuplicatedAsync(short yearId, string documentNumber, int? exceptId)
+    {
+        var duplicate = await db.AdmissionRequests.AnyAsync(a =>
+            a.YearId == yearId &&
+            a.DocumentNumber == documentNumber &&
+            a.Status != AdmissionStatuses.Rejected &&
+            (exceptId == null || a.AdmissionRequestId != exceptId));
+
+        if (duplicate)
+            throw new InvalidOperationException(
+                $"Ya hay una solicitud de admisión vigente para el documento {documentNumber} en {yearId}.");
+    }
+
+    private static void Apply(
+        AdmissionRequest admission,
+        int gradeId,
+        StudentFormData student,
+        GuardianFormData guardian,
+        C600FormData c600,
+        string? notes)
+    {
+        var cleanNotes = notes?.Trim();
+        if (cleanNotes is { Length: > NotesLength })
+            cleanNotes = cleanNotes[..NotesLength];
+
+        var guardianName = $"{guardian.FirstName} {guardian.LastName}";
+        if (guardianName.Length > GuardianNameLength)
+            guardianName = guardianName[..GuardianNameLength];
+
+        admission.GradeId = gradeId;
+        admission.DocumentType = student.DocumentType!;
+        admission.DocumentNumber = student.DocumentNumber!;
+        admission.FirstName = student.FirstName!;
+        admission.LastName = student.LastName!;
+        admission.BirthDate = student.BirthDate!.Value;
+        admission.Gender = student.Gender![0];
+        admission.BloodType = student.BloodType;
+        admission.Eps = student.Eps;
+        admission.Email = student.Email;
+        admission.CampusId = student.CampusId;
+        admission.GuardianDocumentType = guardian.DocumentType;
+        admission.GuardianDocumentNumber = guardian.DocumentNumber;
+        admission.GuardianFirstName = guardian.FirstName;
+        admission.GuardianLastName = guardian.LastName;
+        admission.GuardianName = guardianName;
+        admission.GuardianPhone = guardian.Phone!;
+        admission.GuardianAddress = guardian.Address;
+        admission.GuardianEmail = guardian.Email;
+        admission.GuardianRelationship = guardian.Relationship;
+        admission.EthnicGroup = c600.EthnicGroup;
+        admission.DisabilityType = c600.DisabilityType;
+        admission.ExceptionalCapacity = c600.ExceptionalCapacity;
+        admission.ConflictVictim = c600.ConflictVictim;
+        admission.Methodology = c600.Methodology;
+        admission.Notes = string.IsNullOrEmpty(cleanNotes) ? null : cleanNotes;
+    }
+
+    private static StudentFormData StudentOf(AdmissionRequest a) =>
+        new(
+            a.DocumentType,
+            a.DocumentNumber,
+            a.FirstName,
+            a.LastName,
+            a.BirthDate,
+            a.Gender?.ToString(),
+            a.BloodType,
+            a.Eps,
+            a.Email,
+            a.CampusId);
+
+    private static GuardianFormData GuardianOf(AdmissionRequest a) =>
+        new(
+            a.GuardianDocumentType,
+            a.GuardianDocumentNumber,
+            a.GuardianFirstName,
+            a.GuardianLastName,
+            a.GuardianPhone,
+            a.GuardianAddress,
+            a.GuardianEmail,
+            a.GuardianRelationship);
+
+    private static C600FormData C600Of(AdmissionRequest a) =>
+        new(a.EthnicGroup, a.DisabilityType, a.ExceptionalCapacity, a.ConflictVictim, a.Methodology);
+
+    private static string Cut(string text, int length) =>
+        text.Length <= length ? text : text[..(length - 1)] + "…";
 
     private static string Format(DateOnly date) => date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
 }

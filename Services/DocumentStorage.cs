@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Options;
 
@@ -24,6 +25,7 @@ public class SupabaseStorageOptions
 public class SupabaseStorageClient(HttpClient http, IOptions<SupabaseStorageOptions> options) : IDocumentStorage
 {
     private const string SecretKeyPrefix = "sb_";
+    private const string MissingObjectMarker = "not_found";
 
     private readonly SupabaseStorageOptions settings = options.Value;
 
@@ -63,6 +65,19 @@ public class SupabaseStorageClient(HttpClient http, IOptions<SupabaseStorageOpti
     {
         using var request = Request(HttpMethod.Delete, path);
         using var response = await http.SendAsync(request, ct);
+
+        if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotFound)
+            return;
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+
+            if (body.Contains(MissingObjectMarker, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        throw new InvalidOperationException("No fue posible eliminar el documento.");
     }
 
     private HttpRequestMessage Request(HttpMethod method, string path)

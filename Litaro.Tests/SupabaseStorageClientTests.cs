@@ -11,10 +11,14 @@ public class SupabaseStorageClientTests
     {
         public HttpRequestMessage? Last { get; private set; }
 
+        public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
+
+        public string Body { get; set; } = "";
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Last = request;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+            return Task.FromResult(new HttpResponseMessage(Status) { Content = new StringContent(Body) });
         }
     }
 
@@ -68,5 +72,33 @@ public class SupabaseStorageClientTests
 
         Assert.Equal("Bearer", handler.Last!.Headers.Authorization!.Scheme);
         Assert.Equal("eyJhbGciOiJIUzI1NiJ9.e30.sig", handler.Last.Headers.GetValues("apikey").Single());
+    }
+
+    [Fact]
+    public async Task Delete_throws_on_server_error()
+    {
+        var (client, handler) = Create("sb_secret_abc");
+        handler.Status = HttpStatusCode.InternalServerError;
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.DeleteAsync("Grades/x.pdf"));
+
+        Assert.Equal("No fue posible eliminar el documento.", error.Message);
+        Assert.Equal(HttpMethod.Delete, handler.Last!.Method);
+    }
+
+    [Fact]
+    public async Task Delete_treats_missing_object_as_deleted()
+    {
+        var (client, handler) = Create("sb_secret_abc");
+
+        handler.Status = HttpStatusCode.NotFound;
+        await client.DeleteAsync("Grades/x.pdf");
+
+        handler.Status = HttpStatusCode.BadRequest;
+        handler.Body = "{\"statusCode\":\"404\",\"error\":\"not_found\",\"message\":\"Object not found\"}";
+        await client.DeleteAsync("Grades/x.pdf");
+
+        handler.Body = "{\"error\":\"invalid_request\"}";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => client.DeleteAsync("Grades/x.pdf"));
     }
 }
