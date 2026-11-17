@@ -15,7 +15,7 @@ public class PermissionCatalogTests
     [Fact]
     public void Processes_lists_every_process_key()
     {
-        Assert.Equal(25, PermissionCatalog.Processes.Count);
+        Assert.Equal(27, PermissionCatalog.Processes.Count);
         Assert.Contains(ProcessKeys.EnrollmentSettings, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.EnrollmentProcess, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.AdmissionDecision, PermissionCatalog.Processes);
