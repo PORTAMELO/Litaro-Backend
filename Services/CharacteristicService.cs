@@ -4,11 +4,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Litaro.Services;
 
-public class CharacteristicService(AppDbContext db)
+public record SaveCharacteristicDetailRequest(string Nombre, string Valor, string? Codigo);
+
+public class CharacteristicService(AppDbContext db, DocumentService documents)
 {
+    public const string DocumentTypeInUse = "El documento tiene archivos cargados; ocúltelo en Parámetros de matrícula.";
+
     public record CreateCharacteristicRequest(string Name);
 
-    public record CreateCharacteristicDetailRequest(int CharacteristicId, string Nombre, string Valor);
+    public record CreateCharacteristicDetailRequest(int CharacteristicId, string Nombre, string Valor, string? Codigo = null);
 
     public Task<List<Characteristic>> GetAllAsync(IDictionary<string, string>? filters = null)
     {
@@ -81,6 +85,7 @@ public class CharacteristicService(AppDbContext db)
             CharacteristicId = request.CharacteristicId,
             Nombre = request.Nombre.Trim(),
             Valor = request.Valor.Trim(),
+            Codigo = string.IsNullOrWhiteSpace(request.Codigo) ? null : request.Codigo.Trim(),
             CreationDate = DateTime.UtcNow,
         };
 
@@ -96,6 +101,45 @@ public class CharacteristicService(AppDbContext db)
         }
 
         return detail;
+    }
+
+    public async Task<CharacteristicDetail?> UpdateDetailAsync(int id, SaveCharacteristicDetailRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Nombre) || string.IsNullOrWhiteSpace(request.Valor))
+            throw new InvalidOperationException("Nombre y valor son obligatorios.");
+
+        var detail = await db.CharacteristicDetails.FirstOrDefaultAsync(d => d.CharacteristicDetailId == id);
+        if (detail is null)
+            return null;
+
+        detail.Nombre = request.Nombre.Trim();
+        detail.Valor = request.Valor.Trim();
+        detail.Codigo = string.IsNullOrWhiteSpace(request.Codigo) ? null : request.Codigo.Trim();
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message);
+        }
+
+        return detail;
+    }
+
+    public async Task<bool> DeleteDetailAsync(int id)
+    {
+        var detail = await db.CharacteristicDetails.FirstOrDefaultAsync(d => d.CharacteristicDetailId == id);
+        if (detail is null)
+            return false;
+
+        if (await documents.HasAnyAsync($"{DocumentTypes.EnrollmentPrefix}{id}"))
+            throw new InvalidOperationException(DocumentTypeInUse);
+
+        db.CharacteristicDetails.Remove(detail);
+        await db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<List<string>?> GetValidValuesForColumnAsync(string tableName, string columnName)

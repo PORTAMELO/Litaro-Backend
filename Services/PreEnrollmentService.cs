@@ -17,7 +17,8 @@ public record PreEnrollmentDto(
     string Status,
     DateTime CreatedAt,
     DateTime? RespondedAt,
-    string? ResponseNote);
+    string? ResponseNote,
+    int MissingDocuments = 0);
 
 public record GeneratePreEnrollmentsResult(
     short SourceYearId,
@@ -28,7 +29,11 @@ public record GeneratePreEnrollmentsResult(
 
 public record RestoreLostResult(int Restored, int SimatReverts);
 
-public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService periods, NotificationService notifications)
+public class PreEnrollmentService(
+    AppDbContext db,
+    EnrollmentPeriodService periods,
+    NotificationService notifications,
+    EnrollmentDocumentService documents)
 {
     private const string ActiveEnrollment = "ACTIVE";
     private const string RestoredNote = "Cupo restablecido al corregir el plazo de prematrícula.";
@@ -187,7 +192,7 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
     {
         await ExpireOverdueAsync(yearId);
 
-        return await db.PreEnrollments
+        var rows = await db.PreEnrollments
             .AsNoTracking()
             .Where(p => p.YearId == yearId)
             .OrderBy(p => p.Student.User.LastName)
@@ -204,8 +209,15 @@ public class PreEnrollmentService(AppDbContext db, EnrollmentPeriodService perio
                 p.Status,
                 p.CreatedAt,
                 p.RespondedAt,
-                p.ResponseNote))
+                p.ResponseNote,
+                0))
             .ToListAsync();
+
+        var missing = await documents.MissingCountsAsync(DocumentTypes.StudentTable, rows.Select(r => r.StudentId).ToList());
+
+        return rows
+            .Select(r => r with { MissingDocuments = missing.GetValueOrDefault(r.StudentId) })
+            .ToList();
     }
 
     public async Task RespondAsync(int id, bool confirm, string? note)

@@ -13,34 +13,24 @@ public class SimatNotificationTests
     private const string DeclinedTemplate =
         "La familia de {estudiante} ({documento}) no continuará en {anio}. Registre la novedad en el SIMAT.";
 
-    private static AdmissionService Admissions(AppDbContext db) =>
-        new(db, new EnrollmentPeriodService(db), new NotificationService(db));
+    private static AdmissionService Admissions(AppDbContext db) => EnrollmentTestData.Admissions(db);
 
     private static PreEnrollmentService PreEnrollments(AppDbContext db) =>
-        new(db, new EnrollmentPeriodService(db), new NotificationService(db));
+        new(db, new EnrollmentPeriodService(db), new NotificationService(db), EnrollmentTestData.Documents(db));
 
     private static async Task<(AdmissionRequest Admission, User Rector)> SeedAdmissionAsync(AppDbContext db)
     {
         TestData.AddNotificationType(db, NotificationCodes.SimatAdmissionApproved, ApprovedTemplate);
+        TestData.AddRole(db, StudentService.RoleName);
+        TestData.AddRole(db, ParentService.RoleName);
+        var campus = EnrollmentTestData.AddCampus(db);
         var rector = TestData.AddUser(db, "Rita", "Mora");
         var grade = new Grade { Name = "Sexto", OrderNum = 6, Level = "Secundaria" };
         db.Grades.Add(grade);
         db.AcademicYears.Add(new AcademicYear { YearId = 2027, Active = true });
         await db.SaveChangesAsync();
 
-        var admission = new AdmissionRequest
-        {
-            YearId = 2027,
-            GradeId = grade.GradeId,
-            FirstName = "Sara",
-            LastName = "Vélez",
-            DocumentType = "TI",
-            DocumentNumber = "1061000001",
-            BirthDate = new DateOnly(2015, 3, 1),
-            GuardianName = "Luz Vélez",
-            GuardianPhone = "3001112233",
-            CreatedById = rector.Id,
-        };
+        var admission = EnrollmentTestData.FullAdmission(2027, grade.GradeId, campus.CampusId, rector.Id);
         db.AdmissionRequests.Add(admission);
         await db.SaveChangesAsync();
 

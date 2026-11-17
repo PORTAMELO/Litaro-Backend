@@ -78,6 +78,8 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
 
                 run.LastRunDate = runDate;
                 await db.SaveChangesAsync(stoppingToken);
+
+                await PurgeRemovedDocumentsAsync(scope.ServiceProvider);
             }
             finally
             {
@@ -92,6 +94,18 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
         catch (Exception ex)
         {
             logger.LogError(ex, "El proceso nocturno de asistencia falló.");
+        }
+    }
+
+    private async Task PurgeRemovedDocumentsAsync(IServiceProvider services)
+    {
+        try
+        {
+            await services.GetRequiredService<DocumentService>().PurgeRemovedAsync(DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "La limpieza de documentos reemplazados falló.");
         }
     }
 

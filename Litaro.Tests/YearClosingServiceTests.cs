@@ -350,7 +350,7 @@ public class YearClosingServiceTests
         await scene.Service.CloseAsync(new CloseRequest(TestSchool.YearId, school.C1001.ClassroomId, null), school.Marta.Id);
 
         var notifications = new NotificationService(db);
-        var preEnrollment = new PreEnrollmentService(db, new EnrollmentPeriodService(db), notifications);
+        var preEnrollment = new PreEnrollmentService(db, new EnrollmentPeriodService(db), notifications, EnrollmentTestData.Documents(db));
         await preEnrollment.GenerateAsync(2027);
 
         var reserved = await db.PreEnrollments.AsNoTracking().ToDictionaryAsync(p => p.StudentId, p => p.GradeId);
@@ -372,7 +372,7 @@ public class YearClosingServiceTests
         db.EnrollmentPeriods.Add(new EnrollmentPeriod { YearId = 2027 });
         await db.SaveChangesAsync();
 
-        var preEnrollment = new PreEnrollmentService(db, new EnrollmentPeriodService(db), new NotificationService(db));
+        var preEnrollment = new PreEnrollmentService(db, new EnrollmentPeriodService(db), new NotificationService(db), EnrollmentTestData.Documents(db));
         await preEnrollment.GenerateAsync(2027);
 
         var beto = await db.PreEnrollments.SingleAsync(p => p.StudentId == school.Beto.StudentId);

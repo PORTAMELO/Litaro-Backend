@@ -196,6 +196,11 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.Neighborhood).HasMaxLength(100);
             entity.Property(e => e.Eps).HasMaxLength(100);
             entity.Property(e => e.BloodType).HasMaxLength(5);
+            entity.Property(e => e.EthnicGroup).HasMaxLength(5);
+            entity.Property(e => e.DisabilityType).HasMaxLength(5);
+            entity.Property(e => e.ExceptionalCapacity).HasMaxLength(5);
+            entity.Property(e => e.ConflictVictim).HasMaxLength(5);
+            entity.Property(e => e.Methodology).HasMaxLength(5);
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.StudentId)
@@ -222,6 +227,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.ParentId).ValueGeneratedNever();
             entity.Property(e => e.Relationship).HasMaxLength(20).IsRequired();
             entity.Property(e => e.Active).HasDefaultValue(true);
+            entity.Property(e => e.Address).HasMaxLength(200);
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.ParentId)
@@ -519,6 +525,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasKey(e => e.CharacteristicDetailId);
             entity.Property(e => e.Nombre).HasMaxLength(150).IsRequired();
             entity.Property(e => e.Valor).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Codigo).HasMaxLength(10);
             entity.Property(e => e.CreationDate).HasDefaultValueSql("now()");
             entity.HasOne(e => e.Characteristic)
                 .WithMany()
@@ -658,8 +665,33 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.Property(e => e.Notes).HasMaxLength(500);
             entity.Property(e => e.Status).HasMaxLength(12).IsRequired().HasDefaultValue(AdmissionStatuses.Pending);
             entity.Property(e => e.DecisionNote).HasMaxLength(500);
+            entity.Property(e => e.Gender).HasMaxLength(1);
+            entity.Property(e => e.BloodType).HasMaxLength(5);
+            entity.Property(e => e.Eps).HasMaxLength(100);
+            entity.Property(e => e.Email).HasMaxLength(256);
+            entity.Property(e => e.GuardianDocumentType).HasMaxLength(5);
+            entity.Property(e => e.GuardianDocumentNumber).HasMaxLength(20);
+            entity.Property(e => e.GuardianFirstName).HasMaxLength(100);
+            entity.Property(e => e.GuardianLastName).HasMaxLength(100);
+            entity.Property(e => e.GuardianAddress).HasMaxLength(200);
+            entity.Property(e => e.GuardianEmail).HasMaxLength(256);
+            entity.Property(e => e.GuardianRelationship).HasMaxLength(20);
+            entity.Property(e => e.EthnicGroup).HasMaxLength(5);
+            entity.Property(e => e.DisabilityType).HasMaxLength(5);
+            entity.Property(e => e.ExceptionalCapacity).HasMaxLength(5);
+            entity.Property(e => e.ConflictVictim).HasMaxLength(5);
+            entity.Property(e => e.Methodology).HasMaxLength(5);
             entity.HasIndex(e => new { e.YearId, e.Status });
             entity.HasIndex(e => new { e.YearId, e.DocumentNumber });
+            entity.HasIndex(e => e.StudentId);
+            entity.HasOne(e => e.Campus)
+                .WithMany()
+                .HasForeignKey(e => e.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Student)
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.AcademicYear)
                 .WithMany()
                 .HasForeignKey(e => e.YearId)

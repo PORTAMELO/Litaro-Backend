@@ -62,10 +62,30 @@ namespace Litaro.Models
         public DateTime? DecidedAt { get; set; }
         public int? DecidedById { get; set; }
         public string? DecisionNote { get; set; }
+        public char? Gender { get; set; }
+        public string? BloodType { get; set; }
+        public string? Eps { get; set; }
+        public string? Email { get; set; }
+        public int? CampusId { get; set; }
+        public string? GuardianDocumentType { get; set; }
+        public string? GuardianDocumentNumber { get; set; }
+        public string? GuardianFirstName { get; set; }
+        public string? GuardianLastName { get; set; }
+        public string? GuardianAddress { get; set; }
+        public string? GuardianEmail { get; set; }
+        public string? GuardianRelationship { get; set; }
+        public string? EthnicGroup { get; set; }
+        public string? DisabilityType { get; set; }
+        public string? ExceptionalCapacity { get; set; }
+        public string? ConflictVictim { get; set; }
+        public string? Methodology { get; set; }
+        public int? StudentId { get; set; }
         public AcademicYear AcademicYear { get; set; } = null!;
         public Grade Grade { get; set; } = null!;
         public User CreatedBy { get; set; } = null!;
         public User? DecidedBy { get; set; }
+        public Campus? Campus { get; set; }
+        public Student? Student { get; set; }
     }
 
     public class AdmissionRequestEvent

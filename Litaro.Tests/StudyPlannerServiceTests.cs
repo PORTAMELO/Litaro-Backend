@@ -77,7 +77,7 @@ public class StudyPlannerServiceTests
     }
 
     [Fact]
-    public async Task Teacher_deletes_own_before_deadline_and_keeps_history()
+    public async Task Teacher_deletes_own_before_deadline_and_keeps_trace()
     {
         var setup = await CreateAsync(Now.AddDays(1));
         var math = await AssignmentAsync(setup.School, setup.School.C1001, setup.School.Math);
@@ -91,7 +91,8 @@ public class StudyPlannerServiceTests
         Assert.False(own.Rows.Single(r => r.AssignmentId == math).Delivered);
         Assert.False(row.IsCurrent);
         Assert.Equal(setup.School.T2.Id, row.ReplacedById);
-        Assert.Single(setup.Storage.Files);
+        Assert.NotNull(row.FileRemovedAt);
+        Assert.Empty(setup.Storage.Files);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => setup.Service.DeleteAsync(Access(setup.School.T2), math, Now));
 

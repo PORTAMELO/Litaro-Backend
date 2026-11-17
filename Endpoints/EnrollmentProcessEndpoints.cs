@@ -91,7 +91,7 @@ public static class EnrollmentProcessEndpoints
                 Results.Ok(await svc.GetEventsAsync(id)))
             .RequirePermission(ProcessKeys.EnrollmentProcess, PermissionFlags.Read);
 
-        group.MapPost("/admissions", async (CreateAdmissionRequest request, ClaimsPrincipal user, AdmissionService svc) =>
+        group.MapPost("/admissions", async (SaveAdmissionRequest request, ClaimsPrincipal user, AdmissionService svc) =>
             {
                 if (CurrentUserId(user) is not { } userId)
                     return Results.Unauthorized();

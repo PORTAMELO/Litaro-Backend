@@ -28,6 +28,7 @@ public static class ProcessKeys
     public const string StudyPlanner = "StudyPlanner";
     public const string StudyPlannerPanel = "StudyPlannerPanel";
     public const string GradeSettings = "GradeSettings";
+    public const string EnrollmentSettings = "EnrollmentSettings";
 }
 
 public static class PermissionCatalog
@@ -79,9 +80,13 @@ public static class PermissionCatalog
         ProcessKeys.StudyPlanner,
         ProcessKeys.StudyPlannerPanel,
         ProcessKeys.GradeSettings,
+        ProcessKeys.EnrollmentSettings,
     ];
 
     public static bool IsManaged(string key) => Tables.Contains(key) || Processes.Contains(key);
+
+    public static string? AliasOf(string role) =>
+        RoleAliases.TryGetValue(role, out var alias) ? alias : null;
 
     public static string KindOf(string key) => Processes.Contains(key) ? ProcessKind : TableKind;
 
