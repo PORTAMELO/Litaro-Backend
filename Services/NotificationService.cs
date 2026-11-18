@@ -10,7 +10,8 @@ public record NotificationTarget(
     int? CampusId = null,
     string? SourceTable = null,
     int? SourceId = null,
-    string? DedupKey = null);
+    string? DedupKey = null,
+    int? RecipientUserId = null);
 
 public record NotificationDto(
     int NotificationId,
@@ -100,6 +101,7 @@ public class NotificationService(AppDbContext db)
             SourceTable = target?.SourceTable,
             SourceId = target?.SourceId,
             DedupKey = dedupKey,
+            RecipientUserId = target?.RecipientUserId,
         };
 
         db.Notifications.Add(notification);
@@ -347,7 +349,10 @@ public class NotificationService(AppDbContext db)
             .Distinct()
             .ToListAsync();
 
-        return db.Notifications.Where(n => typeIds.Contains(n.NotificationTypeId));
+        return db.Notifications.Where(n =>
+            n.RecipientUserId == null
+                ? typeIds.Contains(n.NotificationTypeId)
+                : n.RecipientUserId == userId);
     }
 
     private static string StateOf(string status, bool read) =>

@@ -160,6 +160,10 @@ builder.Services.AddScoped<EnrollmentFormValidator>();
 builder.Services.AddScoped<EnrollmentPersonService>();
 builder.Services.AddScoped<EnrollmentDocumentService>();
 builder.Services.AddScoped<EnrollmentFormService>();
+builder.Services.AddScoped<ObservationService>();
+builder.Services.AddScoped<CitationService>();
+builder.Services.AddScoped<ObservationSettingsService>();
+builder.Services.AddScoped<ObservationConsolidatedService>();
 builder.Services.AddHostedService<AttendanceNightlyWorker>();
 
 var app = builder.Build();
@@ -361,6 +365,8 @@ app.MapNotificationEndpoints();
 app.MapAuditEndpoints();
 app.MapAttendanceRegisterEndpoints();
 app.MapGradingEndpoints();
+app.MapObservationEndpoints();
+app.MapCitationEndpoints();
 
 app.Run();
 

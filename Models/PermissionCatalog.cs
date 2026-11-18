@@ -30,6 +30,9 @@ public static class ProcessKeys
     public const string GradeSettings = "GradeSettings";
     public const string EnrollmentSettings = "EnrollmentSettings";
     public const string AuditModule = "AuditModule";
+    public const string ObservationRecord = "ObservationRecord";
+    public const string ObservationConsolidated = "ObservationConsolidated";
+    public const string Citation = "Citation";
 }
 
 public static class PermissionCatalog
@@ -83,6 +86,9 @@ public static class PermissionCatalog
         ProcessKeys.GradeSettings,
         ProcessKeys.EnrollmentSettings,
         ProcessKeys.AuditModule,
+        ProcessKeys.ObservationRecord,
+        ProcessKeys.ObservationConsolidated,
+        ProcessKeys.Citation,
     ];
 
     public static bool IsManaged(string key) => Tables.Contains(key) || Processes.Contains(key);

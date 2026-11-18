@@ -14,6 +14,7 @@ public record DocumentTypeRule(
 public static class DocumentTypes
 {
     public const string StudyPlanner = "STUDY_PLANNER";
+    public const string ObservationStatement = "OBSERVATION_STATEMENT";
     public const string EnrollmentPrefix = "ENROLLMENT_DOC:";
     public const string EnrollmentModule = "Enrollment";
     public const string AdmissionTable = "AdmissionRequest";
@@ -35,6 +36,14 @@ public static class DocumentTypes
             [Pdf],
             MaxBytes,
             "El archivo debe ser PDF.",
+            SizeMessage),
+        [ObservationStatement] = new DocumentTypeRule(
+            ObservationStatement,
+            "Observations",
+            "Observation",
+            [Pdf, Jpeg, Png],
+            MaxBytes,
+            "El archivo debe ser PDF, JPG o PNG.",
             SizeMessage),
     };
 
