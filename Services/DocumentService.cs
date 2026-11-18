@@ -8,7 +8,7 @@ public record DocumentUpload(string FileName, string ContentType, long Length, F
 
 public record DocumentDto(int DocumentId, string FileName, long SizeBytes, DateTime UploadedAt, string UploadedBy);
 
-public class DocumentService(AppDbContext db, IDocumentStorage storage)
+public class DocumentService(AppDbContext db, IDocumentStorage storage, AuditContext? audit = null)
 {
     private const int FileNameLength = 200;
     private const string NotConfigured = "El almacenamiento de documentos no está configurado.";
@@ -70,10 +70,13 @@ public class DocumentService(AppDbContext db, IDocumentStorage storage)
                 .Where(d => d.DocumentType == rule.Code && d.EntityTable == rule.EntityTable && d.EntityId == entityId && d.IsCurrent)
                 .ToListAsync();
 
-            await RetireAsync(previous, userId, nowUtc);
+            using (audit?.BeginAction(AuditActions.DocReplace))
+            {
+                await RetireAsync(previous, userId, nowUtc);
 
-            if (previous.Count > 0)
-                await db.SaveChangesAsync();
+                if (previous.Count > 0)
+                    await db.SaveChangesAsync();
+            }
 
             db.Documents.Add(document);
             await db.SaveChangesAsync();
@@ -221,10 +224,13 @@ public class DocumentService(AppDbContext db, IDocumentStorage storage)
 
         try
         {
-            await RetireAsync(replaced, userId, nowUtc);
+            using (audit?.BeginAction(AuditActions.DocReplace))
+            {
+                await RetireAsync(replaced, userId, nowUtc);
 
-            if (replaced.Count > 0)
-                await db.SaveChangesAsync();
+                if (replaced.Count > 0)
+                    await db.SaveChangesAsync();
+            }
 
             foreach (var document in moving)
             {

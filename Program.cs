@@ -12,7 +12,10 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Base de datos
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddScoped<AuditContext>();
+builder.Services.AddScoped<AuditService>();
+builder.Services.AddSingleton<AuditCommandInterceptor>();
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
     options.UseNpgsql(
         DatabaseConnections.WithPoolLimit(
@@ -23,9 +26,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             npgsqlOptions.CommandTimeout(90); //Segundos
         }
     );
+    options.AddInterceptors(sp.GetRequiredService<AuditCommandInterceptor>());
 });
 
 builder.Services.ConfigureHttpJsonOptions(options => ApiJson.Configure(options.SerializerOptions));
+builder.Services.Configure<ForwardedHeadersOptions>(ProxyHeaders.Configure);
 
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
@@ -136,6 +141,7 @@ builder.Services.AddScoped<YearClosingService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<NotificationSettingsService>();
+builder.Services.AddScoped<AuditQueryService>();
 builder.Services.AddScoped<AttendanceSettingsService>();
 builder.Services.AddScoped<LateArrivalService>();
 builder.Services.AddScoped<AttendanceCalculationService>();
@@ -158,9 +164,29 @@ builder.Services.AddHostedService<AttendanceNightlyWorker>();
 
 var app = builder.Build();
 
+try
+{
+    using var scope = app.Services.CreateScope();
+    var coverageDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (coverageDb.Database.IsNpgsql())
+    {
+        var uncovered = coverageDb.Database
+            .SqlQueryRaw<string>("SELECT audit_uncovered_tables() AS \"Value\"")
+            .ToList();
+        if (uncovered.Count > 0)
+            app.Logger.LogWarning("Tablas sin trigger de auditoría: {Tables}", string.Join(", ", uncovered));
+    }
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "No se pudo verificar la cobertura de auditoría.");
+}
+
 // Pipeline
+app.UseForwardedHeaders();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
+app.UseMiddleware<AuditContextMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<TablePermissionMiddleware>();
 
@@ -169,21 +195,41 @@ app.MapPost("/auth/login", async (LoginRequest req,
     SignInManager<User> signInManager,
     UserManager<User> userManager,
     UserService userService,
-    AccountService accountService) =>
+    AccountService accountService,
+    AuditContext audit,
+    AuditService auditService) =>
 {
     var user = await accountService.FindByLoginAsync(req.Email);
 
     if (user is null)
+    {
+        await auditService.LogAccessAsync(AuditEventTypes.LoginFail, null, req.Email,
+            LoginAuditReasons.For("USER_NULL", false), DateTime.UtcNow);
         return Results.Json(new { step = "USER_NULL" }, statusCode: 401);
+    }
+
+    var userName = $"{user.FirstName} {user.LastName}".Trim();
+    audit.SetUser(user.Id, userName);
 
     if (!user.Active)
+    {
+        await auditService.LogAccessAsync(AuditEventTypes.LoginFail, user.Id, userName,
+            LoginAuditReasons.For("USER_INACTIVE", false), DateTime.UtcNow);
         return Results.Json(new { step = "USER_INACTIVE" }, statusCode: 401);
+    }
 
     if (user.PasswordHash is null)
+    {
+        await auditService.LogAccessAsync(AuditEventTypes.LoginFail, user.Id, userName,
+            LoginAuditReasons.For("ACTIVATION_REQUIRED", false), DateTime.UtcNow);
         return Results.Json(new { step = "ACTIVATION_REQUIRED" }, statusCode: 200);
+    }
 
     var result = await signInManager.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
     if (!result.Succeeded)
+    {
+        await auditService.LogAccessAsync(AuditEventTypes.LoginFail, user.Id, userName,
+            LoginAuditReasons.For("PASSWORD_CHECK_FAILED", result.IsLockedOut), DateTime.UtcNow);
         return Results.Json(new
         {
             step = "PASSWORD_CHECK_FAILED",
@@ -191,9 +237,12 @@ app.MapPost("/auth/login", async (LoginRequest req,
             isNotAllowed = result.IsNotAllowed,
             requiresTwoFactor = result.RequiresTwoFactor
         }, statusCode: 401);
+    }
 
     if (user.MustChangePassword)
     {
+        await auditService.LogAccessAsync(AuditEventTypes.LoginFail, user.Id, userName,
+            LoginAuditReasons.For("MUST_CHANGE_PASSWORD", false), DateTime.UtcNow);
         return Results.Json(new { step = "MUST_CHANGE_PASSWORD", userId = user.Id }, statusCode: 200);
     }
 
@@ -220,6 +269,8 @@ app.MapPost("/auth/login", async (LoginRequest req,
             IsPersistent = false
         });
 
+    await auditService.LogAccessAsync(AuditEventTypes.LoginOk, user.Id, userName, null, DateTime.UtcNow);
+
     var profiles = await userService.GetProfileSummaryAsync(user.Id);
 
     return Results.Ok(new
@@ -233,8 +284,11 @@ app.MapPost("/auth/login", async (LoginRequest req,
 })
 .AllowAnonymous();
 
-app.MapPost("/auth/logout", async (HttpContext ctx) =>
+app.MapPost("/auth/logout", async (HttpContext ctx, AuditContext audit, AuditService auditService) =>
 {
+    if (ctx.User.Identity?.IsAuthenticated == true)
+        await auditService.LogAccessAsync(AuditEventTypes.Logout, audit.UserId, audit.UserName, null, DateTime.UtcNow);
+
     await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Ok();
 });
@@ -304,6 +358,7 @@ app.MapStudentMovementEndpoints();
 app.MapYearClosingEndpoints();
 app.MapAccountEndpoints();
 app.MapNotificationEndpoints();
+app.MapAuditEndpoints();
 app.MapAttendanceRegisterEndpoints();
 app.MapGradingEndpoints();
 

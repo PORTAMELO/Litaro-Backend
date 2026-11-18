@@ -15,7 +15,8 @@ public class PermissionCatalogTests
     [Fact]
     public void Processes_lists_every_process_key()
     {
-        Assert.Equal(27, PermissionCatalog.Processes.Count);
+        Assert.Equal(28, PermissionCatalog.Processes.Count);
+        Assert.Contains(ProcessKeys.AuditModule, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.EnrollmentSettings, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.EnrollmentProcess, PermissionCatalog.Processes);
         Assert.Contains(ProcessKeys.AdmissionDecision, PermissionCatalog.Processes);
@@ -55,6 +56,21 @@ public class PermissionCatalogTests
         => Assert.All(
             new[] { "GradeBook", "GradeDesign", "StudyPlanner", "StudyPlannerPanel", "GradeSettings" },
             key => Assert.Equal(PermissionCatalog.ProcessKind, PermissionCatalog.KindOf(key)));
+
+    [Fact]
+    public void AllowedFlags_is_read_only_for_audit()
+    {
+        Assert.Equal(PermissionFlags.Read, PermissionCatalog.AllowedFlags("AuditModule"));
+        Assert.Equal(PermissionFlags.Full, PermissionCatalog.AllowedFlags("Student"));
+    }
+
+    [Theory]
+    [InlineData("AuditModule", 1, true)]
+    [InlineData("AuditModule", 0, true)]
+    [InlineData("AuditModule", 3, false)]
+    [InlineData("Student", 15, true)]
+    public void Accepts_rejects_flags_outside_allowed(string key, int permissions, bool expected)
+        => Assert.Equal(expected, PermissionCatalog.Accepts(key, permissions));
 
     [Fact]
     public void AliasOf_maps_Acudiente_to_Padre()
