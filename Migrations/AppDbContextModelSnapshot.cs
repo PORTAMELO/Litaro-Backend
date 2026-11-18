@@ -602,6 +602,102 @@ namespace Litaro.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Litaro.Models.AuditLog", b =>
+                {
+                    b.Property<long>("AuditLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AuditLogId"));
+
+                    b.Property<string>("ActorKind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.PrimitiveCollection<string[]>("ChangedColumns")
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("DbUser")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValueSql("current_user");
+
+                    b.Property<string>("Detail")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("NewData")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("clock_timestamp()");
+
+                    b.Property<string>("OldData")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RecordId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("TableName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("AuditLogId");
+
+                    b.HasIndex("OccurredAt")
+                        .IsDescending();
+
+                    b.HasIndex("OperationId");
+
+                    b.HasIndex("EventType", "OccurredAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("UserId", "OccurredAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("TableName", "RecordId", "OccurredAt")
+                        .IsDescending(false, false, true);
+
+                    b.ToTable("AuditLog", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_AuditLog_ActorKind", "\"ActorKind\" IN ('USER','SYSTEM','DIRECT_DB','ANONYMOUS')");
+
+                            t.HasCheckConstraint("CK_AuditLog_EventType", "\"EventType\" IN ('INSERT','UPDATE','DELETE','LOGIN_OK','LOGIN_FAIL','LOGOUT','DOC_UPLOAD','DOC_UPDATE','DOC_REPLACE','DOC_REPLACED','DOC_REMOVE','DOC_PURGE')");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.Campus", b =>
                 {
                     b.Property<int>("CampusId")

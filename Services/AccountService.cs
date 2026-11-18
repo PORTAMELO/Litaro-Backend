@@ -9,7 +9,7 @@ public record ActivateAccountRequest(string Login, DateOnly BirthDate, string Ne
 
 public record ChangePasswordRequest(string Login, string CurrentPassword, string NewPassword);
 
-public class AccountService(AppDbContext db, UserManager<User> userManager, SignInManager<User> signInManager)
+public class AccountService(AppDbContext db, UserManager<User> userManager, SignInManager<User> signInManager, AuditContext? audit = null)
 {
     private const string ActivationError = "Los datos no coinciden con una cuenta pendiente de activar.";
     private const string LockedOutError = "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.";
@@ -34,6 +34,8 @@ public class AccountService(AppDbContext db, UserManager<User> userManager, Sign
 
         if (user is null || !user.Active || user.PasswordHash is not null)
             throw new InvalidOperationException(ActivationError);
+
+        audit?.SetUser(user.Id, $"{user.FirstName} {user.LastName}".Trim());
 
         if (await userManager.IsLockedOutAsync(user))
             throw new InvalidOperationException(LockedOutError);
@@ -79,6 +81,8 @@ public class AccountService(AppDbContext db, UserManager<User> userManager, Sign
         var user = await FindByLoginAsync(request.Login);
         if (user is null || !user.Active || user.PasswordHash is null)
             throw new InvalidOperationException(CredentialsError);
+
+        audit?.SetUser(user.Id, $"{user.FirstName} {user.LastName}".Trim());
 
         var check = await signInManager.CheckPasswordSignInAsync(user, request.CurrentPassword ?? string.Empty, lockoutOnFailure: true);
         if (check.IsLockedOut)

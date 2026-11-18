@@ -1,4 +1,5 @@
 using Litaro.Models;
+using Litaro.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,13 @@ namespace Litaro.Data;
 
 public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public AppDbContext(DbContextOptions<AppDbContext> options, AuditContext? audit = null) : base(options)
+    {
+        Audit = audit;
+        Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
+    }
+
+    public AuditContext? Audit { get; }
 
     public DbSet<School> Schools => Set<School>();
 
@@ -106,6 +113,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<GradingDeadline> GradingDeadlines => Set<GradingDeadline>();
 
     public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1142,6 +1151,36 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 .WithMany()
                 .HasForeignKey(e => e.ReplacedById)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.ToTable("AuditLog", t =>
+            {
+                t.HasCheckConstraint("CK_AuditLog_EventType",
+                    "\"EventType\" IN ('INSERT','UPDATE','DELETE','LOGIN_OK','LOGIN_FAIL','LOGOUT','DOC_UPLOAD','DOC_UPDATE','DOC_REPLACE','DOC_REPLACED','DOC_REMOVE','DOC_PURGE')");
+                t.HasCheckConstraint("CK_AuditLog_ActorKind",
+                    "\"ActorKind\" IN ('USER','SYSTEM','DIRECT_DB','ANONYMOUS')");
+            });
+            entity.HasKey(e => e.AuditLogId);
+            entity.Property(e => e.OccurredAt).HasDefaultValueSql("clock_timestamp()");
+            entity.Property(e => e.EventType).HasMaxLength(20);
+            entity.Property(e => e.TableName).HasMaxLength(100);
+            entity.Property(e => e.RecordId).HasMaxLength(200);
+            entity.Property(e => e.OldData).HasColumnType("jsonb");
+            entity.Property(e => e.NewData).HasColumnType("jsonb");
+            entity.Property(e => e.ActorKind).HasMaxLength(12);
+            entity.Property(e => e.UserName).HasMaxLength(200);
+            entity.Property(e => e.DbUser).HasMaxLength(100).HasDefaultValueSql("current_user");
+            entity.Property(e => e.Source).HasMaxLength(200);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(300);
+            entity.Property(e => e.Detail).HasColumnType("jsonb");
+            entity.HasIndex(e => e.OccurredAt).IsDescending();
+            entity.HasIndex(e => new { e.TableName, e.RecordId, e.OccurredAt }).IsDescending(false, false, true);
+            entity.HasIndex(e => new { e.UserId, e.OccurredAt }).IsDescending(false, true);
+            entity.HasIndex(e => new { e.EventType, e.OccurredAt }).IsDescending(false, true);
+            entity.HasIndex(e => e.OperationId);
         });
     }
 }

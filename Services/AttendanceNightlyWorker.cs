@@ -40,6 +40,7 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
         try
         {
             using var scope = scopes.CreateScope();
+            scope.ServiceProvider.GetRequiredService<AuditContext>().SetSystem("AttendanceNightly");
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var settings = scope.ServiceProvider.GetRequiredService<AttendanceSettingsService>();
 
@@ -101,6 +102,7 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
     {
         try
         {
+            services.GetRequiredService<AuditContext>().SetSystem("DocumentPurge");
             await services.GetRequiredService<DocumentService>().PurgeRemovedAsync(DateTime.UtcNow);
         }
         catch (Exception ex)
@@ -114,6 +116,7 @@ public class AttendanceNightlyWorker(IServiceScopeFactory scopes, ILogger<Attend
         try
         {
             using var scope = scopes.CreateScope();
+            scope.ServiceProvider.GetRequiredService<AuditContext>().SetSystem("PlannerDeadline");
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var locks = db.Database.IsNpgsql();
 
