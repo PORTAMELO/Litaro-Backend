@@ -116,6 +116,14 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<Observation> Observations => Set<Observation>();
+
+    public DbSet<ObservationCommitment> ObservationCommitments => Set<ObservationCommitment>();
+
+    public DbSet<ObservationEvent> ObservationEvents => Set<ObservationEvent>();
+
+    public DbSet<Citation> Citations => Set<Citation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -829,6 +837,11 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 .WithMany()
                 .HasForeignKey(e => e.DoneById)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.RecipientUserId, e.Status });
+            entity.HasOne(e => e.RecipientUser)
+                .WithMany()
+                .HasForeignKey(e => e.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<NotificationRead>(entity =>
@@ -1181,6 +1194,120 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             entity.HasIndex(e => new { e.UserId, e.OccurredAt }).IsDescending(false, true);
             entity.HasIndex(e => new { e.EventType, e.OccurredAt }).IsDescending(false, true);
             entity.HasIndex(e => e.OperationId);
+        });
+
+        modelBuilder.Entity<Observation>(entity =>
+        {
+            entity.ToTable("Observation", t =>
+            {
+                t.HasCheckConstraint("CK_Observation_Kind", "\"IsAcademic\" OR \"IsCoexistence\"");
+                t.HasCheckConstraint("CK_Observation_CoexistenceType",
+                    "(\"IsCoexistence\" AND \"CoexistenceType\" IN ('I','II','III')) OR (NOT \"IsCoexistence\" AND \"CoexistenceType\" IS NULL)");
+            });
+            entity.HasKey(e => e.ObservationId);
+            entity.Property(e => e.Description).HasMaxLength(2000).IsRequired();
+            entity.Property(e => e.CoexistenceType).HasMaxLength(3);
+            entity.Property(e => e.Statement).HasMaxLength(2000);
+            entity.HasIndex(e => new { e.EnrollmentId, e.Date });
+            entity.HasIndex(e => e.RecordedById);
+            entity.HasOne(e => e.Enrollment)
+                .WithMany()
+                .HasForeignKey(e => e.EnrollmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Subject)
+                .WithMany()
+                .HasForeignKey(e => e.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RecordedBy)
+                .WithMany()
+                .HasForeignKey(e => e.RecordedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ObservationCommitment>(entity =>
+        {
+            entity.ToTable("ObservationCommitment", t =>
+                t.HasCheckConstraint("CK_ObservationCommitment_Status",
+                    "\"Status\" IN ('PENDING','MET','NOT_MET','OBSERVATION')"));
+            entity.HasKey(e => e.ObservationCommitmentId);
+            entity.Property(e => e.Text).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(12).IsRequired().HasDefaultValue(CommitmentStatuses.Pending);
+            entity.Property(e => e.Note).HasMaxLength(300);
+            entity.HasIndex(e => e.ObservationId);
+            entity.HasOne(e => e.Observation)
+                .WithMany(o => o.Commitments)
+                .HasForeignKey(e => e.ObservationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ObservationEvent>(entity =>
+        {
+            entity.ToTable("ObservationEvent");
+            entity.HasKey(e => e.ObservationEventId);
+            entity.Property(e => e.Action).HasMaxLength(25).IsRequired();
+            entity.Property(e => e.Detail).HasMaxLength(500);
+            entity.HasIndex(e => new { e.ObservationId, e.CreatedAt });
+            entity.HasOne(e => e.Observation)
+                .WithMany(o => o.Events)
+                .HasForeignKey(e => e.ObservationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Citation>(entity =>
+        {
+            entity.ToTable("Citation", t =>
+            {
+                t.HasCheckConstraint("CK_Citation_Status",
+                    "\"Status\" IN ('TO_SCHEDULE','SCHEDULED','RESCHEDULED','CANCELLED','CLOSED')");
+                t.HasCheckConstraint("CK_Citation_Origin", "\"Origin\" IN ('AUTO','MANUAL')");
+                t.HasCheckConstraint("CK_Citation_Schedule",
+                    "(\"ScheduledDate\" IS NULL) = (\"ScheduledTime\" IS NULL)");
+            });
+            entity.HasKey(e => e.CitationId);
+            entity.Property(e => e.Origin).HasMaxLength(6).IsRequired();
+            entity.Property(e => e.Reason).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(12).IsRequired().HasDefaultValue(CitationStatuses.ToSchedule);
+            entity.Property(e => e.Note).HasMaxLength(300);
+            entity.HasIndex(e => e.StudentId);
+            entity.HasIndex(e => e.ParentId);
+            entity.HasIndex(e => e.ObservationId);
+            entity.HasIndex(e => new { e.ResponsibleUserId, e.ScheduledDate });
+            entity.HasOne(e => e.Student)
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Parent)
+                .WithMany()
+                .HasForeignKey(e => e.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Observation)
+                .WithMany()
+                .HasForeignKey(e => e.ObservationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ResponsibleUser)
+                .WithMany()
+                .HasForeignKey(e => e.ResponsibleUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Schedule)
+                .WithMany()
+                .HasForeignKey(e => e.ScheduleId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.RescheduledFrom)
+                .WithMany()
+                .HasForeignKey(e => e.RescheduledFromId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

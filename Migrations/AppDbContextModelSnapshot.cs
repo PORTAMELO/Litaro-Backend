@@ -802,6 +802,100 @@ namespace Litaro.Migrations
                     b.ToTable("CharacteristicDetail", "public");
                 });
 
+            modelBuilder.Entity("Litaro.Models.Citation", b =>
+                {
+                    b.Property<int>("CitationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CitationId"));
+
+                    b.Property<bool>("Attended")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int?>("ObservationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("ParentInformed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("RescheduledFromId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ResponsibleUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ScheduleId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("ScheduledDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("ScheduledTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasDefaultValue("TO_SCHEDULE");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("StudentInformed")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("CitationId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ObservationId");
+
+                    b.HasIndex("ParentId");
+
+                    b.HasIndex("RescheduledFromId");
+
+                    b.HasIndex("ScheduleId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("ResponsibleUserId", "ScheduledDate");
+
+                    b.ToTable("Citation", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_Citation_Origin", "\"Origin\" IN ('AUTO','MANUAL')");
+
+                            t.HasCheckConstraint("CK_Citation_Schedule", "(\"ScheduledDate\" IS NULL) = (\"ScheduledTime\" IS NULL)");
+
+                            t.HasCheckConstraint("CK_Citation_Status", "\"Status\" IN ('TO_SCHEDULE','SCHEDULED','RESCHEDULED','CANCELLED','CLOSED')");
+                        });
+                });
+
             modelBuilder.Entity("Litaro.Models.ClassTardiness", b =>
                 {
                     b.Property<int>("ClassTardinessId")
@@ -1454,6 +1548,9 @@ namespace Litaro.Migrations
                     b.Property<int>("NotificationTypeId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("RecipientUserId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("SourceId")
                         .HasColumnType("integer");
 
@@ -1487,6 +1584,8 @@ namespace Litaro.Migrations
                     b.HasIndex("StudentId");
 
                     b.HasIndex("YearId");
+
+                    b.HasIndex("RecipientUserId", "Status");
 
                     b.HasIndex("Status", "CreatedAt");
 
@@ -1590,6 +1689,147 @@ namespace Litaro.Migrations
                         {
                             t.HasCheckConstraint("CK_NotificationTypeRecipient_Target", "(\"RoleId\" IS NULL) <> (\"UserId\" IS NULL)");
                         });
+                });
+
+            modelBuilder.Entity("Litaro.Models.Observation", b =>
+                {
+                    b.Property<int>("ObservationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ObservationId"));
+
+                    b.Property<string>("CoexistenceType")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsAcademic")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCoexistence")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RecordedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Statement")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ObservationId");
+
+                    b.HasIndex("RecordedById");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("EnrollmentId", "Date");
+
+                    b.ToTable("Observation", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_Observation_CoexistenceType", "(\"IsCoexistence\" AND \"CoexistenceType\" IN ('I','II','III')) OR (NOT \"IsCoexistence\" AND \"CoexistenceType\" IS NULL)");
+
+                            t.HasCheckConstraint("CK_Observation_Kind", "\"IsAcademic\" OR \"IsCoexistence\"");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.ObservationCommitment", b =>
+                {
+                    b.Property<int>("ObservationCommitmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ObservationCommitmentId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("FollowUpDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int>("ObservationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("ObservationCommitmentId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ObservationId");
+
+                    b.ToTable("ObservationCommitment", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_ObservationCommitment_Status", "\"Status\" IN ('PENDING','MET','NOT_MET','OBSERVATION')");
+                        });
+                });
+
+            modelBuilder.Entity("Litaro.Models.ObservationEvent", b =>
+                {
+                    b.Property<int>("ObservationEventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ObservationEventId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("character varying(25)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ObservationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ObservationEventId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ObservationId", "CreatedAt");
+
+                    b.ToTable("ObservationEvent", "public");
                 });
 
             modelBuilder.Entity("Litaro.Models.Parent", b =>
@@ -2812,6 +3052,60 @@ namespace Litaro.Migrations
                     b.Navigation("Characteristic");
                 });
 
+            modelBuilder.Entity("Litaro.Models.Citation", b =>
+                {
+                    b.HasOne("Litaro.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Observation", "Observation")
+                        .WithMany()
+                        .HasForeignKey("ObservationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.Parent", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.Citation", "RescheduledFrom")
+                        .WithMany()
+                        .HasForeignKey("RescheduledFromId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.User", "ResponsibleUser")
+                        .WithMany()
+                        .HasForeignKey("ResponsibleUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Litaro.Models.Schedule", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Litaro.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Observation");
+
+                    b.Navigation("Parent");
+
+                    b.Navigation("RescheduledFrom");
+
+                    b.Navigation("ResponsibleUser");
+
+                    b.Navigation("Schedule");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("Litaro.Models.ClassTardiness", b =>
                 {
                     b.HasOne("Litaro.Models.AttendanceSession", "Session")
@@ -3124,6 +3418,11 @@ namespace Litaro.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Litaro.Models.User", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Litaro.Models.Student", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
@@ -3141,6 +3440,8 @@ namespace Litaro.Migrations
                     b.Navigation("DoneBy");
 
                     b.Navigation("NotificationType");
+
+                    b.Navigation("RecipientUser");
 
                     b.Navigation("Student");
                 });
@@ -3185,6 +3486,70 @@ namespace Litaro.Migrations
                     b.Navigation("NotificationType");
 
                     b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Litaro.Models.Observation", b =>
+                {
+                    b.HasOne("Litaro.Models.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("RecordedBy");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Litaro.Models.ObservationCommitment", b =>
+                {
+                    b.HasOne("Litaro.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.Observation", "Observation")
+                        .WithMany("Commitments")
+                        .HasForeignKey("ObservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Observation");
+                });
+
+            modelBuilder.Entity("Litaro.Models.ObservationEvent", b =>
+                {
+                    b.HasOne("Litaro.Models.Observation", "Observation")
+                        .WithMany("Events")
+                        .HasForeignKey("ObservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Litaro.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Observation");
 
                     b.Navigation("User");
                 });
@@ -3517,6 +3882,13 @@ namespace Litaro.Migrations
             modelBuilder.Entity("Litaro.Models.GradingScheme", b =>
                 {
                     b.Navigation("Activities");
+                });
+
+            modelBuilder.Entity("Litaro.Models.Observation", b =>
+                {
+                    b.Navigation("Commitments");
+
+                    b.Navigation("Events");
                 });
 #pragma warning restore 612, 618
         }

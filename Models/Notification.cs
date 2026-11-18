@@ -22,6 +22,9 @@ namespace Litaro.Models
         public const string PlannerRequest = "PLANNER_REQUEST";
         public const string EnrollDocsIncomplete = "ENROLL_DOCS_INCOMPLETE";
         public const string SimatDataMismatch = "SIMAT_DATA_MISMATCH";
+        public const string CitationParent = "CITATION_PARENT";
+        public const string CitationCoordination = "CITATION_COORDINATION";
+        public const string ObservationTypeIThreshold = "OBS_TYPE1_THRESHOLD";
     }
 
     public static class NotificationStatuses
@@ -69,6 +72,7 @@ namespace Litaro.Models
         public string? SourceTable { get; set; }
         public int? SourceId { get; set; }
         public string? DedupKey { get; set; }
+        public int? RecipientUserId { get; set; }
         public string Status { get; set; } = NotificationStatuses.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? DoneAt { get; set; }
@@ -79,6 +83,7 @@ namespace Litaro.Models
         public AcademicYear? AcademicYear { get; set; }
         public Campus? Campus { get; set; }
         public User? DoneBy { get; set; }
+        public User? RecipientUser { get; set; }
     }
 
     public class NotificationRead
